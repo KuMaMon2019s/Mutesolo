@@ -15,6 +15,7 @@ It does not implement runtime execution, workflow orchestration, a web UI, distr
 
 ```sh
 go build ./cmd/opclawctl
+go build ./cmd/mutisolo-web
 ```
 
 ## State
@@ -77,4 +78,25 @@ opclawctl pipeline run -prompt "rewrite system architecture" # stored but blocke
 ```
 
 Use `-approve-system` only as a manual override for reviewing system-level artifacts. It still stores an artifact; it does not auto-apply code.
+
+## Web Console
+
+Start the local console:
+
+```sh
+go run ./cmd/mutisolo-web
+```
+
+Open `http://127.0.0.1:8787`.
+
+The console provides:
+
+- OpenClaw online/offline probe through the configured Tailscale URL by reading `/.well-known/agent-card.json`.
+- GitHub repository field and a guarded push action that refuses to push while local changes are uncommitted.
+- Private ClawHub skill listing through `GET /api/skills` on the configured ClawHub URL.
+- Project and requirement point management.
+- Coordination prompt generation from project plan, requirement document, and selected requirement.
+- Segmented prompt output stored as a controlled artifact under `artifacts/`.
+
+The web layer does not execute generated code, does not auto-change system architecture, and does not trigger recursive generation. LLM optimization and OpenClaw message delivery are exposed as integration points, but remain bounded by the control layer and artifact storage.
 # MutiSolo

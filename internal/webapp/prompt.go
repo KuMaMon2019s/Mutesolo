@@ -1,0 +1,66 @@
+package webapp
+
+import (
+	"fmt"
+	"strings"
+
+	controllayer "openclaw-coordination/control_layer"
+)
+
+func BuildPrompt(project Project, req Requirement) string {
+	parts := []string{
+		"You are OpenClaw executing one bounded requirement.",
+		"Stay inside the requested module boundary unless a human explicitly approves broader work.",
+		"Return implementation notes and artifact-ready output only.",
+		"",
+		"Project:",
+		project.Name,
+		project.Description,
+		"",
+		"Planning map:",
+		project.Plan,
+		"",
+		"Requirement document:",
+		project.Docs,
+		"",
+		"Requirement point:",
+		req.Title,
+		req.Description,
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n"))
+}
+
+func SegmentPrompt(prompt string) []string {
+	lines := strings.Split(prompt, "\n")
+	segments := make([]string, 0, 4)
+	var current []string
+	for _, line := range lines {
+		current = append(current, line)
+		if len(current) >= 6 {
+			segments = append(segments, strings.TrimSpace(strings.Join(current, "\n")))
+			current = nil
+		}
+	}
+	if len(current) > 0 {
+		segments = append(segments, strings.TrimSpace(strings.Join(current, "\n")))
+	}
+	return segments
+}
+
+func StorePromptArtifact(project Project, req Requirement, prompt string, artifactDir string) (PromptResult, error) {
+	result, err := controllayer.RunPipeline(controllayer.PipelineInput{
+		Prompt: prompt,
+	}, artifactDir)
+	if err != nil {
+		return PromptResult{}, err
+	}
+	if result.Artifact.Validation.Status == controllayer.ValidationBlocked {
+		return PromptResult{}, fmt.Errorf("prompt artifact blocked: %s", strings.Join(result.Artifact.Validation.Reasons, "; "))
+	}
+	return PromptResult{
+		ProjectID:     project.ID,
+		RequirementID: req.ID,
+		Segments:      SegmentPrompt(prompt),
+		ArtifactPath:  result.Path,
+	}, nil
+}

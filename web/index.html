@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MutiSolo Control Console</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>MutiSolo</h1>
+          <p>Controlled OpenClaw coordination console</p>
+        </div>
+        <button id="refreshBtn" class="iconButton" title="Refresh status">Refresh</button>
+      </header>
+
+      <section class="grid">
+        <aside class="panel">
+          <h2>Connections</h2>
+          <label>OpenClaw Tailscale URL</label>
+          <input id="openclawUrl" placeholder="http://100.x.y.z:18800" />
+          <label>GitHub repository</label>
+          <input id="githubRepo" placeholder="https://github.com/user/repo" />
+          <label>Private ClawHub URL</label>
+          <input id="clawhubUrl" placeholder="https://clawhub.internal" />
+          <label>LLM API URL</label>
+          <input id="llmUrl" placeholder="https://llm.internal/v1" />
+          <div class="buttonRow">
+            <button id="saveConfigBtn">Save</button>
+            <button id="pushBtn" class="secondary">Push</button>
+          </div>
+
+          <div class="statusBlock">
+            <div class="statusLine">
+              <span id="openclawDot" class="dot"></span>
+              <strong id="openclawText">OpenClaw unknown</strong>
+            </div>
+            <p id="openclawMeta"></p>
+          </div>
+
+          <h2>ClawHub Skills</h2>
+          <div id="skillsList" class="list empty">No skills loaded</div>
+        </aside>
+
+        <section class="panel work">
+          <div class="sectionHead">
+            <h2>Projects</h2>
+            <button id="createProjectBtn">Create</button>
+          </div>
+          <div class="formGrid">
+            <input id="projectName" placeholder="Project name" />
+            <input id="projectDesc" placeholder="Description" />
+            <textarea id="projectPlan" placeholder="Planning map"></textarea>
+            <textarea id="projectDocs" placeholder="Requirement document"></textarea>
+          </div>
+          <div id="projectsList" class="projectList"></div>
+        </section>
+
+        <section class="panel">
+          <h2>Requirement Point</h2>
+          <select id="projectSelect"></select>
+          <input id="reqTitle" placeholder="Requirement title" />
+          <textarea id="reqDesc" placeholder="Requirement details"></textarea>
+          <div class="buttonRow">
+            <button id="addReqBtn">Add</button>
+            <button id="promptBtn" class="secondary">Generate Prompt</button>
+          </div>
+
+          <h2>Prompt Output</h2>
+          <p id="artifactPath" class="muted"></p>
+          <div id="segments" class="segments empty">No prompt generated</div>
+        </section>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
