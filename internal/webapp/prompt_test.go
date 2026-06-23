@@ -1,6 +1,9 @@
 package webapp
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestBuildPromptSegmentsAndStoresArtifact(t *testing.T) {
 	project := Project{
@@ -28,5 +31,22 @@ func TestBuildPromptSegmentsAndStoresArtifact(t *testing.T) {
 	}
 	if result.ArtifactPath == "" {
 		t.Fatal("artifact path is empty")
+	}
+	if result.DiscordText == "" {
+		t.Fatal("discord text is empty")
+	}
+}
+
+func TestBuildDiscordMessageIncludesCommitInstruction(t *testing.T) {
+	project := Project{Name: "Console"}
+	req := Requirement{ID: "req-1", Title: "Status panel"}
+
+	message := BuildDiscordMessage(project, req, "do the work")
+
+	if !strings.Contains(message, "OpenClaw A task") {
+		t.Fatalf("message does not target OpenClaw A: %q", message)
+	}
+	if !strings.Contains(message, "commit: <sha>") {
+		t.Fatalf("message does not include commit instruction: %q", message)
 	}
 }

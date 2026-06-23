@@ -153,6 +153,8 @@ func (s Server) handleProjectActions(w http.ResponseWriter, r *http.Request) {
 		s.handlePrompt(w, r, projectID)
 	case "send":
 		s.handleSendPrompt(w, r, projectID)
+	case "board":
+		s.handleBoardUpdate(w, r, projectID)
 	default:
 		writeError(w, http.StatusNotFound, "unknown project action")
 	}
@@ -259,6 +261,37 @@ func (s Server) handleSendPrompt(w http.ResponseWriter, r *http.Request, project
 		return
 	}
 	writeJSON(w, result)
+}
+
+func (s Server) handleBoardUpdate(w http.ResponseWriter, r *http.Request, projectID string) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var input BoardUpdate
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(input.RequirementIDs) == 0 {
+		writeError(w, http.StatusBadRequest, "requirement_ids is required")
+		return
+	}
+	state, err := s.store.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	updated, ok := UpdateRequirements(&state, projectID, input)
+	if !ok {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	if err := s.store.Save(state); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, updated)
 }
 
 func (s Server) handleGitHubPush(w http.ResponseWriter, r *http.Request) {

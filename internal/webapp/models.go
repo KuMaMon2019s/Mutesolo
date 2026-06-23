@@ -5,6 +5,7 @@ import "time"
 type Config struct {
 	OpenClawBaseURL string `json:"openclaw_base_url"`
 	OpenClawToken   string `json:"openclaw_token,omitempty"`
+	DiscordURL      string `json:"discord_url,omitempty"`
 	GitHubRepo      string `json:"github_repo"`
 	ClawHubBaseURL  string `json:"clawhub_base_url"`
 	LLMBaseURL      string `json:"llm_base_url"`
@@ -27,6 +28,7 @@ type Requirement struct {
 	Description string    `json:"description"`
 	Status      string    `json:"status"`
 	Prompt      string    `json:"prompt,omitempty"`
+	CommitID    string    `json:"commit_id,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -61,6 +63,7 @@ type PromptResult struct {
 	RequirementID string   `json:"requirement_id"`
 	Segments      []string `json:"segments"`
 	ArtifactPath  string   `json:"artifact_path"`
+	DiscordText   string   `json:"discord_text"`
 }
 
 type SendResult struct {
@@ -68,4 +71,10 @@ type SendResult struct {
 	Endpoint   string `json:"endpoint"`
 	StatusCode int    `json:"status_code,omitempty"`
 	Message    string `json:"message,omitempty"`
+}
+
+type BoardUpdate struct {
+	RequirementIDs []string `json:"requirement_ids"`
+	CommitID       string   `json:"commit_id"`
+	Status         string   `json:"status"`
 }

@@ -25,6 +25,8 @@
           <input id="openclawToken" type="password" placeholder="optional" />
           <label>GitHub repository</label>
           <input id="githubRepo" placeholder="https://github.com/user/repo" />
+          <label>Discord channel or DM URL</label>
+          <input id="discordUrl" placeholder="https://discord.com/channels/..." />
           <label>Private ClawHub URL</label>
           <input id="clawhubUrl" placeholder="https://clawhub.internal" />
           <label>LLM API URL</label>
@@ -70,12 +72,18 @@
           <div class="buttonRow">
             <button id="addReqBtn">Add</button>
             <button id="promptBtn" class="secondary">Generate Prompt</button>
-            <button id="sendBtn" class="secondary">Send</button>
+            <button id="copyDiscordBtn" class="secondary">Copy</button>
+            <button id="openDiscordBtn" class="secondary">Discord</button>
           </div>
 
           <h2>Prompt Output</h2>
           <p id="artifactPath" class="muted"></p>
           <div id="segments" class="segments empty">No prompt generated</div>
+
+          <h2>Task Board</h2>
+          <input id="commitId" placeholder="OpenClaw A commit sha" />
+          <button id="closeSelectedBtn" class="secondary wide">Close Selected</button>
+          <div id="boardList" class="list empty">No requirements</div>
         </section>
       </section>
     </main>

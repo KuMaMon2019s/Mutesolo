@@ -2,6 +2,7 @@ const state = {
   projects: [],
   selectedProject: "",
   selectedRequirement: "",
+  discordText: "",
 };
 
 const el = (id) => document.getElementById(id);
@@ -25,6 +26,7 @@ async function loadState() {
   el("openclawUrl").value = cfg.openclaw_base_url || "";
   el("openclawToken").value = cfg.openclaw_token || "";
   el("githubRepo").value = cfg.github_repo || "";
+  el("discordUrl").value = cfg.discord_url || "";
   el("clawhubUrl").value = cfg.clawhub_base_url || "";
   el("llmUrl").value = cfg.llm_base_url || "";
   renderProjects();
@@ -63,6 +65,7 @@ function renderProjects() {
   }
   state.selectedProject = select.value || state.projects[0].id;
   renderRequirementOptions();
+  renderBoard();
 }
 
 function renderRequirementOptions() {
@@ -70,6 +73,7 @@ function renderRequirementOptions() {
   if (!project) return;
   const latest = (project.requirements || []).at(-1);
   state.selectedRequirement = latest ? latest.id : "";
+  renderBoard();
 }
 
 async function saveConfig() {
@@ -79,6 +83,7 @@ async function saveConfig() {
       openclaw_base_url: el("openclawUrl").value.trim(),
       openclaw_token: el("openclawToken").value.trim(),
       github_repo: el("githubRepo").value.trim(),
+      discord_url: el("discordUrl").value.trim(),
       clawhub_base_url: el("clawhubUrl").value.trim(),
       llm_base_url: el("llmUrl").value.trim(),
     }),
@@ -179,6 +184,7 @@ async function generatePrompt() {
     body: JSON.stringify({ requirement_id: requirement.id }),
   });
   el("artifactPath").textContent = result.artifact_path;
+  state.discordText = result.discord_text || result.segments.join("\n\n");
   const segments = el("segments");
   segments.innerHTML = "";
   segments.className = "segments";
@@ -190,16 +196,17 @@ async function generatePrompt() {
   });
 }
 
-async function sendPrompt() {
-  const project = currentProject();
-  if (!project) throw new Error("Create or select a project first");
-  const requirement = currentRequirement(project);
-  if (!requirement) throw new Error("Add a requirement first");
-  const result = await api(`/api/projects/${project.id}/send`, {
-    method: "POST",
-    body: JSON.stringify({ requirement_id: requirement.id }),
-  });
-  alert(result.sent ? "Sent to OpenClaw" : result.message || "Not sent");
+async function copyDiscordPrompt() {
+  if (!state.discordText) {
+    await generatePrompt();
+  }
+  await navigator.clipboard.writeText(state.discordText);
+  alert("Copied Discord prompt");
+}
+
+function openDiscord() {
+  const url = el("discordUrl").value.trim() || "https://discord.com/app";
+  window.open(url, "_blank", "noopener");
 }
 
 async function pushGitHub() {
@@ -215,6 +222,47 @@ function currentProject() {
 function currentRequirement(project) {
   const requirements = project.requirements || [];
   return requirements.find((req) => req.id === state.selectedRequirement) || requirements.at(-1);
+}
+
+function renderBoard() {
+  const list = el("boardList");
+  if (!list) return;
+  const project = currentProject();
+  const requirements = project ? project.requirements || [] : [];
+  list.innerHTML = "";
+  if (!requirements.length) {
+    list.className = "list empty";
+    list.textContent = "No requirements";
+    return;
+  }
+  list.className = "list";
+  for (const req of requirements) {
+    const item = document.createElement("div");
+    item.className = "item";
+    item.innerHTML = `
+      <div class="itemRow">
+        <input type="checkbox" data-req-id="${escapeHtml(req.id)}" />
+        <div>
+          <strong>${escapeHtml(req.title)}</strong>
+          <span>${escapeHtml(req.status || "draft")}${req.commit_id ? ` · ${escapeHtml(req.commit_id)}` : ""}</span>
+        </div>
+      </div>`;
+    list.append(item);
+  }
+}
+
+async function closeSelected() {
+  const project = currentProject();
+  if (!project) throw new Error("Create or select a project first");
+  const ids = [...document.querySelectorAll("[data-req-id]:checked")].map((node) => node.dataset.reqId);
+  if (!ids.length) throw new Error("Select at least one requirement");
+  const commitId = el("commitId").value.trim();
+  if (!commitId) throw new Error("Paste OpenClaw A commit sha first");
+  await api(`/api/projects/${project.id}/board`, {
+    method: "POST",
+    body: JSON.stringify({ requirement_ids: ids, commit_id: commitId, status: "closed" }),
+  });
+  await loadState();
 }
 
 function escapeHtml(value) {
@@ -243,7 +291,9 @@ bind("saveConfigBtn", saveConfig);
 bind("createProjectBtn", createProject);
 bind("addReqBtn", addRequirement);
 bind("promptBtn", generatePrompt);
-bind("sendBtn", sendPrompt);
+bind("copyDiscordBtn", copyDiscordPrompt);
+bind("openDiscordBtn", async () => openDiscord());
 bind("pushBtn", pushGitHub);
+bind("closeSelectedBtn", closeSelected);
 
 loadState().then(refreshConnections).catch((error) => alert(error.message));

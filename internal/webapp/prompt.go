@@ -62,5 +62,20 @@ func StorePromptArtifact(project Project, req Requirement, prompt string, artifa
 		RequirementID: req.ID,
 		Segments:      SegmentPrompt(prompt),
 		ArtifactPath:  result.Path,
+		DiscordText:   BuildDiscordMessage(project, req, prompt),
 	}, nil
+}
+
+func BuildDiscordMessage(project Project, req Requirement, prompt string) string {
+	return strings.TrimSpace(fmt.Sprintf(`OpenClaw A task
+
+Project: %s
+Requirement: %s
+Requirement ID: %s
+
+After completing the work, commit to GitHub and reply with:
+commit: <sha>
+
+Prompt:
+%s`, project.Name, req.Title, req.ID, prompt))
 }

@@ -93,12 +93,16 @@ The console provides:
 
 - OpenClaw online/offline probe through the configured Tailscale URL by reading `/.well-known/agent-card.json`.
 - Manual prompt delivery to OpenClaw through the configured A2A gateway URL.
+- Discord handoff flow for IM-based OpenClaw agents: copy a Discord-ready prompt, open the configured Discord channel or DM, and send it manually.
 - GitHub repository field and a guarded push action that refuses to push while local changes are uncommitted.
 - Private ClawHub skill listing through `GET /api/skills` on the configured ClawHub URL.
 - Project and requirement point management.
+- Task board closure by pasting OpenClaw A's GitHub commit SHA and closing selected requirements in bulk.
 - Coordination prompt generation from project plan, requirement document, and selected requirement.
 - Segmented prompt output stored as a controlled artifact under `artifacts/`.
 - Runtime descriptors for Go, Node/TypeScript, and Python plugin compatibility.
 
 The web layer does not execute generated code, does not auto-change system architecture, and does not trigger recursive generation. LLM optimization, plugin execution, and OpenClaw delivery remain explicit integration points bounded by the control layer and artifact storage.
+
+Discord is intentionally handled as a human-in-the-loop IM handoff. The console does not embed the Discord login page or automate a personal Discord session. It prepares the message, copies it to the clipboard, and opens the configured Discord URL. OpenClaw A is expected to commit results to GitHub and reply with `commit: <sha>`; MutiSolo records that commit ID when you close selected requirement points on the task board.
 # MutiSolo

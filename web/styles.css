@@ -125,6 +125,11 @@ button:hover {
   background: #dde6ef;
 }
 
+.wide {
+  width: 100%;
+  margin-top: 8px;
+}
+
 .iconButton {
   min-width: 88px;
 }
@@ -200,6 +205,24 @@ button:hover {
 .segment strong {
   display: block;
   margin-bottom: 4px;
+}
+
+.itemRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.itemRow input {
+  width: auto;
+  margin-top: 2px;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  font: 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 }
 
 .segments {
