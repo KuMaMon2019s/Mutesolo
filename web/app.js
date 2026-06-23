@@ -95,6 +95,15 @@ async function saveConfig() {
   });
   await refreshConnections();
   renderDiscordWidget();
+  closeConnections();
+}
+
+function toggleConnections() {
+  el("connectionPopover").classList.toggle("hidden");
+}
+
+function closeConnections() {
+  el("connectionPopover").classList.add("hidden");
 }
 
 function renderDiscordWidget() {
@@ -303,6 +312,8 @@ bind("refreshBtn", async () => {
   await loadState();
   await refreshConnections();
 });
+bind("connectionBtn", async () => toggleConnections());
+bind("closeConnectionBtn", async () => closeConnections());
 bind("saveConfigBtn", saveConfig);
 bind("createProjectBtn", createProject);
 bind("addReqBtn", addRequirement);
