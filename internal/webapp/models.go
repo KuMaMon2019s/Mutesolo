@@ -3,12 +3,14 @@ package webapp
 import "time"
 
 type Config struct {
-	OpenClawBaseURL string `json:"openclaw_base_url"`
-	OpenClawToken   string `json:"openclaw_token,omitempty"`
-	DiscordURL      string `json:"discord_url,omitempty"`
-	GitHubRepo      string `json:"github_repo"`
-	ClawHubBaseURL  string `json:"clawhub_base_url"`
-	LLMBaseURL      string `json:"llm_base_url"`
+	OpenClawBaseURL  string `json:"openclaw_base_url"`
+	OpenClawToken    string `json:"openclaw_token,omitempty"`
+	DiscordURL       string `json:"discord_url,omitempty"`
+	DiscordWidgetURL string `json:"discord_widget_url,omitempty"`
+	DiscordBotID     string `json:"discord_bot_id,omitempty"`
+	GitHubRepo       string `json:"github_repo"`
+	ClawHubBaseURL   string `json:"clawhub_base_url"`
+	LLMBaseURL       string `json:"llm_base_url"`
 }
 
 type Project struct {

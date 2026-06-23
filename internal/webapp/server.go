@@ -224,6 +224,7 @@ func (s Server) handlePrompt(w http.ResponseWriter, r *http.Request, projectID s
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	result.DiscordText = BuildDiscordMessageForBot(project, req, prompt, state.Config.DiscordBotID)
 	writeJSON(w, result)
 }
 

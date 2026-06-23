@@ -27,6 +27,10 @@
           <input id="githubRepo" placeholder="https://github.com/user/repo" />
           <label>Discord channel or DM URL</label>
           <input id="discordUrl" placeholder="https://discord.com/channels/..." />
+          <label>Discord server widget URL</label>
+          <input id="discordWidgetUrl" placeholder="https://discordapp.com/widget?id=...&theme=dark" />
+          <label>OpenClaw Discord BOT ID</label>
+          <input id="discordBotId" placeholder="150..." />
           <label>Private ClawHub URL</label>
           <input id="clawhubUrl" placeholder="https://clawhub.internal" />
           <label>LLM API URL</label>
@@ -46,6 +50,8 @@
 
           <h2>ClawHub Skills</h2>
           <div id="skillsList" class="list empty">No skills loaded</div>
+          <h2>Discord Widget</h2>
+          <iframe id="discordWidget" class="discordWidget" title="Discord server widget" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
           <h2>Plugin Runtimes</h2>
           <div id="runtimeList" class="list empty">No runtimes loaded</div>
         </aside>

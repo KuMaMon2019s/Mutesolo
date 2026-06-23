@@ -27,8 +27,11 @@ async function loadState() {
   el("openclawToken").value = cfg.openclaw_token || "";
   el("githubRepo").value = cfg.github_repo || "";
   el("discordUrl").value = cfg.discord_url || "";
+  el("discordWidgetUrl").value = cfg.discord_widget_url || "";
+  el("discordBotId").value = cfg.discord_bot_id || "";
   el("clawhubUrl").value = cfg.clawhub_base_url || "";
   el("llmUrl").value = cfg.llm_base_url || "";
+  renderDiscordWidget();
   renderProjects();
 }
 
@@ -84,11 +87,24 @@ async function saveConfig() {
       openclaw_token: el("openclawToken").value.trim(),
       github_repo: el("githubRepo").value.trim(),
       discord_url: el("discordUrl").value.trim(),
+      discord_widget_url: el("discordWidgetUrl").value.trim(),
+      discord_bot_id: el("discordBotId").value.trim(),
       clawhub_base_url: el("clawhubUrl").value.trim(),
       llm_base_url: el("llmUrl").value.trim(),
     }),
   });
   await refreshConnections();
+  renderDiscordWidget();
+}
+
+function renderDiscordWidget() {
+  const iframe = el("discordWidget");
+  const url = el("discordWidgetUrl").value.trim();
+  if (!url) {
+    iframe.removeAttribute("src");
+    return;
+  }
+  iframe.src = url;
 }
 
 async function refreshConnections() {

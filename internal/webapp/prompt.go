@@ -67,9 +67,18 @@ func StorePromptArtifact(project Project, req Requirement, prompt string, artifa
 }
 
 func BuildDiscordMessage(project Project, req Requirement, prompt string) string {
+	return BuildDiscordMessageForBot(project, req, prompt, "")
+}
+
+func BuildDiscordMessageForBot(project Project, req Requirement, prompt string, botID string) string {
+	mention := ""
+	botID = strings.TrimSpace(botID)
+	if botID != "" {
+		mention = fmt.Sprintf("<@%s>\n\n", botID)
+	}
 	return strings.TrimSpace(fmt.Sprintf(`OpenClaw A task
 
-Project: %s
+%sProject: %s
 Requirement: %s
 Requirement ID: %s
 
@@ -77,5 +86,5 @@ After completing the work, commit to GitHub and reply with:
 commit: <sha>
 
 Prompt:
-%s`, project.Name, req.Title, req.ID, prompt))
+%s`, mention, project.Name, req.Title, req.ID, prompt))
 }

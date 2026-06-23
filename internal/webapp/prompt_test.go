@@ -50,3 +50,14 @@ func TestBuildDiscordMessageIncludesCommitInstruction(t *testing.T) {
 		t.Fatalf("message does not include commit instruction: %q", message)
 	}
 }
+
+func TestBuildDiscordMessageCanMentionBot(t *testing.T) {
+	project := Project{Name: "Console"}
+	req := Requirement{ID: "req-1", Title: "Status panel"}
+
+	message := BuildDiscordMessageForBot(project, req, "do the work", "1503733248587730996")
+
+	if !strings.Contains(message, "<@1503733248587730996>") {
+		t.Fatalf("message does not mention bot: %q", message)
+	}
+}
