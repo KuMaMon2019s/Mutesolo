@@ -1,4 +1,5 @@
 .openclaw/
 .gocache/
+artifacts/*.json
 /opclawctl
 /mutisolo-web
