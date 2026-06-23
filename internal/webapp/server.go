@@ -30,10 +30,19 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/api/config", s.handleConfig)
 	mux.HandleFunc("/api/openclaw/status", s.handleOpenClawStatus)
 	mux.HandleFunc("/api/clawhub/skills", s.handleClawHubSkills)
+	mux.HandleFunc("/api/plugin-runtimes", s.handlePluginRuntimes)
 	mux.HandleFunc("/api/projects", s.handleProjects)
 	mux.HandleFunc("/api/projects/", s.handleProjectActions)
 	mux.HandleFunc("/api/github/push", s.handleGitHubPush)
 	return mux
+}
+
+func (s Server) handlePluginRuntimes(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	writeJSON(w, SupportedPluginRuntimes())
 }
 
 func (s Server) handleState(w http.ResponseWriter, r *http.Request) {
@@ -142,6 +151,8 @@ func (s Server) handleProjectActions(w http.ResponseWriter, r *http.Request) {
 		s.handleRequirements(w, r, projectID)
 	case "prompt":
 		s.handlePrompt(w, r, projectID)
+	case "send":
+		s.handleSendPrompt(w, r, projectID)
 	default:
 		writeError(w, http.StatusNotFound, "unknown project action")
 	}
@@ -209,6 +220,42 @@ func (s Server) handlePrompt(w http.ResponseWriter, r *http.Request, projectID s
 	result, err := StorePromptArtifact(project, req, prompt, "artifacts")
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, result)
+}
+
+func (s Server) handleSendPrompt(w http.ResponseWriter, r *http.Request, projectID string) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var input struct {
+		RequirementID string `json:"requirement_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	state, err := s.store.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	project, ok := FindProject(state, projectID)
+	if !ok {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	req, ok := FindRequirement(project, input.RequirementID)
+	if !ok {
+		writeError(w, http.StatusNotFound, "requirement not found")
+		return
+	}
+	prompt := BuildPrompt(project, req)
+	result, err := s.connector.SendOpenClawPrompt(r.Context(), state.Config.OpenClawBaseURL, state.Config.OpenClawToken, prompt)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
 	writeJSON(w, result)

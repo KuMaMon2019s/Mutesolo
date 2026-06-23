@@ -92,11 +92,13 @@ Open `http://127.0.0.1:8787`.
 The console provides:
 
 - OpenClaw online/offline probe through the configured Tailscale URL by reading `/.well-known/agent-card.json`.
+- Manual prompt delivery to OpenClaw through the configured A2A gateway URL.
 - GitHub repository field and a guarded push action that refuses to push while local changes are uncommitted.
 - Private ClawHub skill listing through `GET /api/skills` on the configured ClawHub URL.
 - Project and requirement point management.
 - Coordination prompt generation from project plan, requirement document, and selected requirement.
 - Segmented prompt output stored as a controlled artifact under `artifacts/`.
+- Runtime descriptors for Go, Node/TypeScript, and Python plugin compatibility.
 
-The web layer does not execute generated code, does not auto-change system architecture, and does not trigger recursive generation. LLM optimization and OpenClaw message delivery are exposed as integration points, but remain bounded by the control layer and artifact storage.
+The web layer does not execute generated code, does not auto-change system architecture, and does not trigger recursive generation. LLM optimization, plugin execution, and OpenClaw delivery remain explicit integration points bounded by the control layer and artifact storage.
 # MutiSolo

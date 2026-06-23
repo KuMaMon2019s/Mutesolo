@@ -1,9 +1,11 @@
 package webapp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -78,6 +80,49 @@ func (c Connector) ListClawHubSkills(ctx context.Context, baseURL string) ([]Ski
 		return nil, err
 	}
 	return skills, nil
+}
+
+func (c Connector) SendOpenClawPrompt(ctx context.Context, baseURL, token, prompt string) (SendResult, error) {
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	result := SendResult{Endpoint: baseURL + "/message"}
+	if baseURL == "" || strings.Contains(baseURL, "100.x.y.z") {
+		return result, fmt.Errorf("configure a Tailscale OpenClaw URL")
+	}
+	if strings.TrimSpace(prompt) == "" {
+		return result, fmt.Errorf("prompt is required")
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"message": prompt,
+		"metadata": map[string]string{
+			"source": "mutisolo-coordination-layer",
+		},
+	})
+	if err != nil {
+		return result, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, result.Endpoint, bytes.NewReader(body))
+	if err != nil {
+		return result, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if strings.TrimSpace(token) != "" {
+		req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(token))
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return result, err
+	}
+	defer resp.Body.Close()
+	result.StatusCode = resp.StatusCode
+	responseBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+	result.Message = strings.TrimSpace(string(responseBody))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return result, fmt.Errorf("openclaw returned HTTP %d", resp.StatusCode)
+	}
+	result.Sent = true
+	return result, nil
 }
 
 func stringField(values map[string]any, key string) string {

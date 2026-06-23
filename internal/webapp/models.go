@@ -4,6 +4,7 @@ import "time"
 
 type Config struct {
 	OpenClawBaseURL string `json:"openclaw_base_url"`
+	OpenClawToken   string `json:"openclaw_token,omitempty"`
 	GitHubRepo      string `json:"github_repo"`
 	ClawHubBaseURL  string `json:"clawhub_base_url"`
 	LLMBaseURL      string `json:"llm_base_url"`
@@ -45,6 +46,14 @@ type SkillSummary struct {
 	Name         string   `json:"name,omitempty"`
 	Version      string   `json:"version,omitempty"`
 	Capabilities []string `json:"capabilities,omitempty"`
+	Runtime      string   `json:"runtime,omitempty"`
+	Entrypoint   string   `json:"entrypoint,omitempty"`
+}
+
+type PluginRuntime struct {
+	Name        string   `json:"name"`
+	Extensions  []string `json:"extensions"`
+	CommandHint string   `json:"command_hint"`
 }
 
 type PromptResult struct {
@@ -52,4 +61,11 @@ type PromptResult struct {
 	RequirementID string   `json:"requirement_id"`
 	Segments      []string `json:"segments"`
 	ArtifactPath  string   `json:"artifact_path"`
+}
+
+type SendResult struct {
+	Sent       bool   `json:"sent"`
+	Endpoint   string `json:"endpoint"`
+	StatusCode int    `json:"status_code,omitempty"`
+	Message    string `json:"message,omitempty"`
 }

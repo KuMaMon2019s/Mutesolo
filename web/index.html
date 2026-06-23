@@ -21,6 +21,8 @@
           <h2>Connections</h2>
           <label>OpenClaw Tailscale URL</label>
           <input id="openclawUrl" placeholder="http://100.x.y.z:18800" />
+          <label>OpenClaw bearer token</label>
+          <input id="openclawToken" type="password" placeholder="optional" />
           <label>GitHub repository</label>
           <input id="githubRepo" placeholder="https://github.com/user/repo" />
           <label>Private ClawHub URL</label>
@@ -42,6 +44,8 @@
 
           <h2>ClawHub Skills</h2>
           <div id="skillsList" class="list empty">No skills loaded</div>
+          <h2>Plugin Runtimes</h2>
+          <div id="runtimeList" class="list empty">No runtimes loaded</div>
         </aside>
 
         <section class="panel work">
@@ -66,6 +70,7 @@
           <div class="buttonRow">
             <button id="addReqBtn">Add</button>
             <button id="promptBtn" class="secondary">Generate Prompt</button>
+            <button id="sendBtn" class="secondary">Send</button>
           </div>
 
           <h2>Prompt Output</h2>

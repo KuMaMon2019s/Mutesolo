@@ -23,6 +23,7 @@ async function loadState() {
   state.projects = data.projects || [];
   const cfg = data.config || {};
   el("openclawUrl").value = cfg.openclaw_base_url || "";
+  el("openclawToken").value = cfg.openclaw_token || "";
   el("githubRepo").value = cfg.github_repo || "";
   el("clawhubUrl").value = cfg.clawhub_base_url || "";
   el("llmUrl").value = cfg.llm_base_url || "";
@@ -76,6 +77,7 @@ async function saveConfig() {
     method: "PUT",
     body: JSON.stringify({
       openclaw_base_url: el("openclawUrl").value.trim(),
+      openclaw_token: el("openclawToken").value.trim(),
       github_repo: el("githubRepo").value.trim(),
       clawhub_base_url: el("clawhubUrl").value.trim(),
       llm_base_url: el("llmUrl").value.trim(),
@@ -121,6 +123,22 @@ async function refreshConnections() {
     el("skillsList").className = "list empty";
     el("skillsList").textContent = error.message;
   }
+
+  try {
+    const runtimes = await api("/api/plugin-runtimes");
+    const list = el("runtimeList");
+    list.innerHTML = "";
+    list.className = "list";
+    for (const runtime of runtimes) {
+      const item = document.createElement("div");
+      item.className = "item";
+      item.innerHTML = `<strong>${escapeHtml(runtime.name)}</strong><span>${escapeHtml((runtime.extensions || []).join(", "))}</span>`;
+      list.append(item);
+    }
+  } catch (error) {
+    el("runtimeList").className = "list empty";
+    el("runtimeList").textContent = error.message;
+  }
 }
 
 async function createProject() {
@@ -154,7 +172,7 @@ async function addRequirement() {
 async function generatePrompt() {
   const project = currentProject();
   if (!project) throw new Error("Create or select a project first");
-  const requirement = (project.requirements || []).at(-1);
+  const requirement = currentRequirement(project);
   if (!requirement) throw new Error("Add a requirement first");
   const result = await api(`/api/projects/${project.id}/prompt`, {
     method: "POST",
@@ -172,6 +190,18 @@ async function generatePrompt() {
   });
 }
 
+async function sendPrompt() {
+  const project = currentProject();
+  if (!project) throw new Error("Create or select a project first");
+  const requirement = currentRequirement(project);
+  if (!requirement) throw new Error("Add a requirement first");
+  const result = await api(`/api/projects/${project.id}/send`, {
+    method: "POST",
+    body: JSON.stringify({ requirement_id: requirement.id }),
+  });
+  alert(result.sent ? "Sent to OpenClaw" : result.message || "Not sent");
+}
+
 async function pushGitHub() {
   const result = await api("/api/github/push", { method: "POST", body: "{}" });
   alert(result.status);
@@ -180,6 +210,11 @@ async function pushGitHub() {
 function currentProject() {
   const selected = el("projectSelect").value || state.selectedProject;
   return state.projects.find((project) => project.id === selected) || state.projects[0];
+}
+
+function currentRequirement(project) {
+  const requirements = project.requirements || [];
+  return requirements.find((req) => req.id === state.selectedRequirement) || requirements.at(-1);
 }
 
 function escapeHtml(value) {
@@ -208,6 +243,7 @@ bind("saveConfigBtn", saveConfig);
 bind("createProjectBtn", createProject);
 bind("addReqBtn", addRequirement);
 bind("promptBtn", generatePrompt);
+bind("sendBtn", sendPrompt);
 bind("pushBtn", pushGitHub);
 
 loadState().then(refreshConnections).catch((error) => alert(error.message));
