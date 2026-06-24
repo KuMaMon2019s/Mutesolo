@@ -211,6 +211,7 @@ function renderDiscordWidget() {
 }
 
 function connectDiscordPanel() {
+  if (!el("discordWidgetUrl") || !el("discordPreviewShell") || !el("discordEmbedShell")) return;
   const url = el("discordWidgetUrl").value.trim();
   el("discordPreviewShell").classList.add("hidden");
   el("discordEmbedShell").classList.remove("hidden");
@@ -257,10 +258,12 @@ async function loadTailscaleDevices() {
   const status = await api("/api/tailscale/devices");
   state.tailscaleDevices = status.devices || [];
   state.tailscaleError = status.error || "";
-  renderOpenClawStrip(status.tailnet || "");
+  renderOpenClawStrip();
+  renderAgentSelects();
+  renderBoard();
 }
 
-function renderOpenClawStrip(tailnet = "") {
+function renderOpenClawStrip() {
   const strip = el("openClawStrip");
   if (!strip) return;
   strip.innerHTML = "";
@@ -272,7 +275,7 @@ function renderOpenClawStrip(tailnet = "") {
   strip.className = "openClawStrip";
   const label = document.createElement("span");
   label.className = "stripLabel";
-  label.textContent = tailnet ? `OpenClaw · ${tailnet}` : "OpenClaw";
+  label.textContent = "OpenClaw";
   strip.append(label);
   const avatars = document.createElement("div");
   avatars.className = "openClawAvatars";
@@ -416,7 +419,7 @@ async function addRequirement() {
       priority: selectedPriority(),
       status: state.newRequirementStatus || "draft",
       branch_id: state.selectedBranch || firstBranch(project).id,
-      agent_id: "openclaw-a",
+      agent_id: selectedAgent("reqAgentSelect"),
     }),
   });
   state.selectedRequirement = req.id;
@@ -463,7 +466,7 @@ function renderDiscordPreview() {
 async function copyDiscordPrompt() {
   if (!state.discordText) await generatePrompt();
   await navigator.clipboard.writeText(state.discordText);
-  alert("Copied Discord prompt");
+  alert("Copied prompt");
 }
 
 function openDiscord() {
@@ -578,16 +581,15 @@ function renderIssueCard(req, color) {
   card.draggable = true;
   card.addEventListener("dragstart", (event) => event.dataTransfer.setData("text/plain", req.id));
   const status = req.status || "draft";
-  const agentID = req.agent_id || "openclaw-a";
+  const agentID = normalizeAgentID(req.agent_id || defaultAgentID());
   card.innerHTML = `
     <div class="issueBody">
     <div class="issueTitle">${escapeHtml(req.title)}</div>
     <div class="badges">
       <span class="badge ${priorityClass(req.priority)}">${priorityLabel(req.priority)}</span>
-      <span class="badge agent">${escapeHtml(agentLabel(agentID))}</span>
     </div>
     <div class="assigneeRow">
-      <span class="avatar">A</span>
+      <span class="avatar">${escapeHtml(avatarText(agentLabel(agentID)).slice(0, 1))}</span>
       <select class="agentSelect" data-agent-req="${escapeHtml(req.id)}">
         ${agentOptions(agentID)}
       </select>
@@ -604,7 +606,7 @@ function renderIssueCard(req, color) {
   });
   card.addEventListener("dblclick", () => {
     state.selectedRequirement = req.id;
-    showView("taskView");
+    showTaskView();
   });
   wrap.append(card);
   return wrap;
@@ -730,6 +732,47 @@ async function assignRequirementAgent(reqID, agentID) {
   await loadState();
 }
 
+function showTaskView() {
+  renderTaskDetail();
+  showView("taskView");
+}
+
+function renderTaskDetail() {
+  const project = currentProject();
+  const requirement = project ? currentRequirement(project) : null;
+  if (!requirement) {
+    el("taskTitle").value = "";
+    el("taskDesc").value = "";
+    renderAgentSelects();
+    return;
+  }
+  el("taskTitle").value = requirement.title || "";
+  el("taskDesc").value = requirement.description || "";
+  const priority = requirement.priority || "low";
+  const priorityInput = document.querySelector(`[name=taskPriority][value="${priority}"]`);
+  if (priorityInput) priorityInput.checked = true;
+  renderAgentSelect("taskAgentSelect", normalizeAgentID(requirement.agent_id || defaultAgentID()));
+}
+
+async function saveTaskDetail() {
+  const project = currentProject();
+  if (!project) throw new Error("Create or select a project first");
+  const requirement = currentRequirement(project);
+  if (!requirement) throw new Error("Select or create a requirement first");
+  const updated = await api(`/api/projects/${project.id}/requirements/${encodeURIComponent(requirement.id)}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      title: el("taskTitle").value.trim(),
+      description: el("taskDesc").value.trim(),
+      priority: selectedPriority("taskPriority"),
+      agent_id: selectedAgent("taskAgentSelect"),
+    }),
+  });
+  state.selectedRequirement = updated.id;
+  await loadState();
+  showTaskView();
+}
+
 function renderSelectionToolbar() {
   const count = state.selectedRequirements.size;
   el("selectionToolbar").classList.toggle("hidden", count === 0);
@@ -783,6 +826,7 @@ function openRequirementModal(status = "draft") {
   state.newRequirementStatus = status;
   const low = document.querySelector("[name=reqPriority][value=low]");
   if (low) low.checked = true;
+  renderAgentSelect("reqAgentSelect", defaultAgentID());
   el("requirementModal").classList.remove("hidden");
   el("reqTitle").focus();
 }
@@ -813,8 +857,8 @@ function closeBranchDropdown() {
   el("branchDropdownMenu").classList.add("hidden");
 }
 
-function selectedPriority() {
-  return document.querySelector("[name=reqPriority]:checked")?.value || "low";
+function selectedPriority(name = "reqPriority") {
+  return document.querySelector(`[name=${name}]:checked`)?.value || "low";
 }
 
 function priorityLabel(priority) {
@@ -838,21 +882,63 @@ function priorityClass(priority) {
 }
 
 function agentLabel(agentID) {
+  agentID = normalizeAgentID(agentID);
+  const device = state.tailscaleDevices.find((item) => item.id === agentID || item.openclaw_url === agentID || tailscaleDeviceName(item) === agentID);
+  if (device) return tailscaleDeviceName(device);
   return {
     "openclaw-a": "OpenClaw A",
     "openclaw-b": "OpenClaw B",
     "openclaw-c": "OpenClaw C",
-  }[agentID || "openclaw-a"] || "OpenClaw A";
+  }[agentID || ""] || agentID || "Unassigned";
 }
 
 function agentOptions(selectedAgent) {
-  return [
-    ["openclaw-a", "OpenClaw A"],
-    ["openclaw-b", "OpenClaw B"],
-    ["openclaw-c", "OpenClaw C"],
-  ]
+  selectedAgent = normalizeAgentID(selectedAgent);
+  const devices = openClawAgentOptions(selectedAgent);
+  return devices
     .map(([value, label]) => `<option value="${value}" ${value === selectedAgent ? "selected" : ""}>${label}</option>`)
     .join("");
+}
+
+function openClawAgentOptions(selectedAgent = "") {
+  const online = state.tailscaleDevices.filter((device) => device.online);
+  const options = online.map((device) => [tailscaleDeviceName(device), tailscaleDeviceName(device)]);
+  if (selectedAgent && !options.some(([value]) => value === selectedAgent)) {
+    options.push([selectedAgent, agentLabel(selectedAgent)]);
+  }
+  if (!options.length) options.push(["openclaw-a", "OpenClaw A"]);
+  return options;
+}
+
+function defaultAgentID() {
+  const device = state.tailscaleDevices.find((item) => item.online);
+  return device ? tailscaleDeviceName(device) : "openclaw-a";
+}
+
+function normalizeAgentID(agentID = "") {
+  if (agentID === "openclaw-a" && state.tailscaleDevices.some((device) => device.online)) {
+    return defaultAgentID();
+  }
+  return agentID;
+}
+
+function selectedAgent(selectID) {
+  return el(selectID).value || defaultAgentID();
+}
+
+function renderAgentSelect(selectID, selectedAgent = "") {
+  const select = el(selectID);
+  if (!select) return;
+  const value = selectedAgent || defaultAgentID();
+  select.innerHTML = agentOptions(value);
+  select.value = value;
+}
+
+function renderAgentSelects() {
+  renderAgentSelect("reqAgentSelect", defaultAgentID());
+  const project = currentProject();
+  const requirement = project ? currentRequirement(project) : null;
+  renderAgentSelect("taskAgentSelect", normalizeAgentID(requirement?.agent_id || defaultAgentID()));
 }
 
 function escapeHtml(value) {
@@ -864,7 +950,9 @@ function escapeHtml(value) {
 }
 
 function bind(id, fn) {
-  el(id).addEventListener("click", async () => {
+  const node = el(id);
+  if (!node) return;
+  node.addEventListener("click", async () => {
     try {
       await fn();
     } catch (error) {
@@ -923,8 +1011,7 @@ bind("kanbanTabBtn", async () => showKanbanTab());
 bind("branchTabBtn", async () => showBranchTab());
 bind("promptBtn", generatePrompt);
 bind("copyDiscordBtn", copyDiscordPrompt);
-bind("openDiscordBtn", async () => openDiscord());
-bind("closeDiscordEmbedBtn", async () => showDiscordPreview());
+bind("saveTaskBtn", saveTaskDetail);
 bind("pushBtn", pushGitHub);
 bind("closeSelectedBtn", closeSelected);
 bind("moveSelectedBranchBtn", moveSelectedRequirementToBranch);

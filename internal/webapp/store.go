@@ -145,6 +145,37 @@ func AddRequirement(state *State, projectID string, input Requirement) (Requirem
 	return Requirement{}, false
 }
 
+func UpdateRequirementDetails(state *State, projectID string, reqID string, input Requirement) (Requirement, bool) {
+	now := time.Now().UTC()
+	for pi := range state.Projects {
+		if state.Projects[pi].ID != projectID {
+			continue
+		}
+		ensureProjectDefaults(&state.Projects[pi])
+		for ri := range state.Projects[pi].Requirements {
+			req := &state.Projects[pi].Requirements[ri]
+			if req.ID != reqID {
+				continue
+			}
+			if strings.TrimSpace(input.Title) != "" {
+				req.Title = strings.TrimSpace(input.Title)
+			}
+			req.Description = strings.TrimSpace(input.Description)
+			if strings.TrimSpace(input.Priority) != "" {
+				req.Priority = strings.TrimSpace(input.Priority)
+			}
+			if strings.TrimSpace(input.AgentID) != "" {
+				req.AgentID = strings.TrimSpace(input.AgentID)
+			}
+			req.UpdatedAt = now
+			state.Projects[pi].UpdatedAt = now
+			return *req, true
+		}
+		return Requirement{}, false
+	}
+	return Requirement{}, false
+}
+
 func AddBranch(state *State, projectID string, name string) (ProjectBranch, bool) {
 	now := time.Now().UTC()
 	name = strings.TrimSpace(name)

@@ -72,3 +72,14 @@ func TestBuildDiscordMessageTargetsAssignedAgent(t *testing.T) {
 		t.Fatalf("message does not target assigned agent: %q", message)
 	}
 }
+
+func TestBuildDiscordMessageTargetsTailscaleAgentName(t *testing.T) {
+	project := Project{Name: "Console"}
+	req := Requirement{ID: "req-1", Title: "Status panel", AgentID: "panda"}
+
+	message := BuildDiscordMessage(project, req, "do the work")
+
+	if !strings.Contains(message, "panda task") {
+		t.Fatalf("message does not target tailscale agent name: %q", message)
+	}
+}

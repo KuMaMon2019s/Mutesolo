@@ -90,12 +90,15 @@ Prompt:
 }
 
 func agentDisplayName(agentID string) string {
-	switch strings.TrimSpace(agentID) {
+	agentID = strings.TrimSpace(agentID)
+	switch agentID {
+	case "", "openclaw-a":
+		return "OpenClaw A"
 	case "openclaw-b":
 		return "OpenClaw B"
 	case "openclaw-c":
 		return "OpenClaw C"
 	default:
-		return "OpenClaw A"
+		return agentID
 	}
 }

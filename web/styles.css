@@ -467,6 +467,7 @@ label,
   min-height: 680px;
 }
 
+.taskDetailPanel,
 .promptPanel,
 .discordPanel {
   min-height: 680px;
@@ -844,6 +845,7 @@ select:disabled {
   display: grid;
   gap: 12px;
   min-height: 150px;
+  align-content: start;
 }
 
 .issueWrap.selected .issueCard {
@@ -871,6 +873,10 @@ select:disabled {
 .issueTitle {
   font-size: 15px;
   line-height: 1.35;
+  padding: 2px 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .badges,

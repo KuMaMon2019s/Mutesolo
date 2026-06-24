@@ -217,6 +217,10 @@ func (s Server) handleProjectActions(w http.ResponseWriter, r *http.Request) {
 	case "branches":
 		s.handleBranches(w, r, projectID)
 	case "requirements":
+		if len(parts) == 3 {
+			s.handleRequirementDetail(w, r, projectID, parts[2])
+			return
+		}
 		s.handleRequirements(w, r, projectID)
 	case "prompt":
 		s.handlePrompt(w, r, projectID)
@@ -280,6 +284,37 @@ func (s Server) handleRequirements(w http.ResponseWriter, r *http.Request, proje
 	req, ok := AddRequirement(&state, projectID, input)
 	if !ok {
 		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	if err := s.store.Save(state); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, req)
+}
+
+func (s Server) handleRequirementDetail(w http.ResponseWriter, r *http.Request, projectID string, reqID string) {
+	if r.Method != http.MethodPut {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var input Requirement
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if strings.TrimSpace(input.Title) == "" {
+		writeError(w, http.StatusBadRequest, "requirement title is required")
+		return
+	}
+	state, err := s.store.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	req, ok := UpdateRequirementDetails(&state, projectID, reqID, input)
+	if !ok {
+		writeError(w, http.StatusNotFound, "requirement not found")
 		return
 	}
 	if err := s.store.Save(state); err != nil {

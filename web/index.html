@@ -110,65 +110,40 @@
         <section id="taskView" class="view">
           <div class="viewHead">
             <div>
-              <p class="breadcrumb">Project board / Requirement / Discord handoff</p>
+              <p class="breadcrumb">Project board / Requirement</p>
               <h2>Task Detail</h2>
-              <p class="muted">Generate a Discord-ready prompt for the selected requirement.</p>
+              <p class="muted">Edit the selected requirement and generate a controlled OpenClaw prompt.</p>
             </div>
             <div class="buttonRow">
               <button id="promptBtn">Generate Prompt</button>
               <button id="copyDiscordBtn" class="secondary">Copy</button>
-              <button id="openDiscordBtn" class="secondary">Discord</button>
             </div>
           </div>
           <div class="taskSplit">
+            <section class="panel taskDetailPanel">
+              <div class="panelHead">
+                <h2>Requirement</h2>
+                <button id="saveTaskBtn" class="secondary">Save</button>
+              </div>
+              <div class="formStack">
+                <input id="taskTitle" placeholder="Requirement title" />
+                <div class="priorityChoices taskPriorityChoices">
+                  <label><input type="radio" name="taskPriority" value="no_priority" /> No priority</label>
+                  <label><input type="radio" name="taskPriority" value="low" /> Low</label>
+                  <label><input type="radio" name="taskPriority" value="medium" /> Medium</label>
+                  <label><input type="radio" name="taskPriority" value="high" /> High</label>
+                  <label><input type="radio" name="taskPriority" value="urgent" /> Urgent</label>
+                </div>
+                <select id="taskAgentSelect"></select>
+                <textarea id="taskDesc" placeholder="Requirement detail"></textarea>
+              </div>
+            </section>
             <section class="panel promptPanel">
               <div class="panelHead">
                 <h2>Prompt</h2>
                 <p id="artifactPath" class="muted"></p>
               </div>
               <div id="segments" class="segments empty">No prompt generated</div>
-            </section>
-            <section id="discordPanel" class="discordPanel">
-              <div id="discordPreviewShell" class="discordShell">
-                <aside class="discordServers">
-                  <div class="discordBubble active">M</div>
-                  <div class="discordBubble">A</div>
-                  <div class="discordBubble">+</div>
-                </aside>
-                <aside class="discordChannels">
-                  <button class="discordSearch">Find or start a conversation</button>
-                  <div class="discordGroup">Direct Messages</div>
-                  <div class="discordUser active"><span class="avatar">A</span> OpenClaw A</div>
-                  <div class="discordUser"><span class="avatar">B</span> OpenClaw B</div>
-                  <div class="discordUser"><span class="avatar">C</span> OpenClaw C</div>
-                </aside>
-                <section class="discordChat">
-                  <header class="discordHeader">
-                    <strong>OpenClaw A</strong>
-                    <span class="muted">Discord handoff preview</span>
-                  </header>
-                  <div id="discordPreview" class="discordMessages">
-                    <div class="discordMessage muted">Generate a prompt, then copy it into Discord.</div>
-                  </div>
-                  <div class="discordComposer">
-                    <span>+</span>
-                    <input value="Message @OpenClaw A" readonly />
-                  </div>
-                </section>
-              </div>
-              <div id="discordEmbedShell" class="discordEmbedShell hidden">
-                <div class="discordEmbedHead">
-                  <div>
-                    <strong>Discord connection</strong>
-                    <p class="muted">Server widget presence and navigation for your OpenClaw Discord channel.</p>
-                  </div>
-                  <button id="closeDiscordEmbedBtn" class="secondary">Preview</button>
-                </div>
-                <iframe id="taskDiscordWidget" class="taskDiscordWidget" title="Discord server widget" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
-                <div id="discordConnectHint" class="discordConnectHint hidden">
-                  Configure a Discord server widget URL on the Connections page, then open this panel again.
-                </div>
-              </div>
             </section>
           </div>
         </section>
@@ -252,6 +227,7 @@
               <label><input type="radio" name="reqPriority" value="high" /> High</label>
               <label><input type="radio" name="reqPriority" value="urgent" /> Urgent</label>
             </div>
+            <select id="reqAgentSelect"></select>
             <textarea id="reqDesc" placeholder="Requirement detail"></textarea>
           </div>
           <button id="addReqBtn">Add</button>
