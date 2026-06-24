@@ -1,0 +1,234 @@
+:root {
+  color-scheme: dark;
+  --bg: #080a0d;
+  --panel: #15191f;
+  --panel-2: #1a2028;
+  --line: #28313d;
+  --line-soft: #1f2630;
+  --text: #f2f5f8;
+  --muted: #96a1b2;
+  --blue: #5b8def;
+  --green: #4dc89a;
+  --orange: #ff8b66;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #0b0e12 0%, var(--bg) 100%);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 10px;
+  background: #2c6bed;
+  color: white;
+  cursor: pointer;
+  font-weight: 700;
+  padding: 10px 14px;
+}
+
+button:hover {
+  background: #3a78f5;
+}
+
+button.secondary {
+  background: #222a36;
+  color: #cbd4df;
+}
+
+button.secondary:hover {
+  background: #2c3645;
+}
+
+input,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #10141a;
+  color: var(--text);
+  padding: 10px 12px;
+}
+
+textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+
+pre {
+  max-height: 420px;
+  overflow: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #d8dee8;
+}
+
+.editorShell {
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.editorTopbar,
+.editorPanel,
+.card {
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  background: rgba(21, 25, 31, 0.94);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
+}
+
+.editorTopbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+  padding: 18px 20px;
+}
+
+.editorTopbar h1,
+.editorTopbar p,
+.panelHead h2,
+.panelHead p,
+.card h2,
+.card p {
+  margin: 0;
+}
+
+.editorTopbar h1 {
+  font-size: 26px;
+}
+
+.editorTopbar p,
+.panelHead p,
+.card p,
+.empty {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.eyebrow {
+  color: var(--blue) !important;
+  font-size: 12px !important;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.actionRow,
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.editorGrid {
+  display: grid;
+  grid-template-columns: minmax(520px, 1fr) 380px;
+  gap: 14px;
+}
+
+.editorPanel,
+.card {
+  min-width: 0;
+  padding: 16px;
+}
+
+.editorPanel {
+  min-height: 640px;
+}
+
+.bn-container {
+  margin-top: 14px;
+  min-height: 560px;
+}
+
+.sidePanel,
+.docList,
+.attachmentList {
+  display: grid;
+  gap: 12px;
+}
+
+.docCard {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-2);
+  padding: 12px;
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+
+.attachmentRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #10141a;
+  padding: 8px 10px;
+}
+
+.attachmentRow strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachmentRow span {
+  border-radius: 999px;
+  color: #11151b;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+}
+
+.attachmentRow span.image {
+  background: var(--green);
+}
+
+.attachmentRow span.file {
+  background: var(--orange);
+}
+
+.outputGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+@media (max-width: 1100px) {
+  .editorTopbar,
+  .editorGrid,
+  .outputGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .editorTopbar {
+    display: grid;
+  }
+}

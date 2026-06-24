@@ -4,3 +4,9 @@
 artifacts/*.json
 /opclawctl
 /mutisolo-web
+node_modules/
+webapps/**/dist/
+webapps/**/.vite/
+webapps/**/*.tsbuildinfo
+webapps/**/vite.config.js
+webapps/**/vite.config.d.ts

@@ -76,17 +76,40 @@ func BuildDiscordMessageForBot(project Project, req Requirement, prompt string, 
 	if botID != "" {
 		mention = fmt.Sprintf("<@%s>\n\n", botID)
 	}
-	return strings.TrimSpace(fmt.Sprintf(`%s task
+	return strings.TrimSpace(fmt.Sprintf("%s task\n\n%sProject: %s\nRequirement: %s\nRequirement ID: %s\n\nAfter completing the work, commit to GitHub and reply with:\ncommit: <sha>\n\nPrompt:\n%s", agentDisplayName(req.AgentID), mention, project.Name, req.Title, req.ID, prompt))
+}
 
-%sProject: %s
-Requirement: %s
-Requirement ID: %s
-
-After completing the work, commit to GitHub and reply with:
-commit: <sha>
-
-Prompt:
-%s`, agentDisplayName(req.AgentID), mention, project.Name, req.Title, req.ID, prompt))
+func BuildRequirementEditorPrompt(plainText string, blocks []map[string]any, docs []RequirementEditorTencentDoc, attachments []RequirementEditorAttachment) string {
+	plainText = strings.TrimSpace(plainText)
+	if plainText == "" {
+		plainText = "No plain text was extracted yet. Inspect the provided blocks JSON before generating final output."
+	}
+	var builder strings.Builder
+	builder.WriteString("Generate a concise implementation prompt for OpenClaw from this requirement context.\n\n")
+	builder.WriteString("Rules:\n")
+	builder.WriteString("- Use only the structured context prepared by the local backend.\n")
+	builder.WriteString("- Do not request or read localhost paths, local filesystem paths, or browser blob URLs.\n")
+	builder.WriteString("- Treat attachments as local artifacts that must be parsed by the local backend before online LLM use.\n\n")
+	builder.WriteString("Requirement text:\n")
+	builder.WriteString(plainText)
+	builder.WriteString("\n\nTencent docs:\n")
+	if len(docs) == 0 {
+		builder.WriteString("- none\n")
+	} else {
+		for _, doc := range docs {
+			builder.WriteString(fmt.Sprintf("- %s: %s\n  Read instruction: %s\n", fallback(doc.Title, "Untitled Tencent Doc"), doc.URL, fallback(doc.ReadInstruction, "No special instruction")))
+		}
+	}
+	builder.WriteString("\nLocal attachments:\n")
+	if len(attachments) == 0 {
+		builder.WriteString("- none\n")
+	} else {
+		for _, attachment := range attachments {
+			builder.WriteString(fmt.Sprintf("- %s (%s, %s, %d bytes)\n", attachment.Name, attachment.Kind, attachment.MIMEType, attachment.Size))
+		}
+	}
+	builder.WriteString(fmt.Sprintf("\nBlock count: %d\n", len(blocks)))
+	return strings.TrimSpace(builder.String())
 }
 
 func agentDisplayName(agentID string) string {
@@ -101,4 +124,12 @@ func agentDisplayName(agentID string) string {
 	default:
 		return agentID
 	}
+}
+
+func fallback(value string, replacement string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return replacement
+	}
+	return value
 }

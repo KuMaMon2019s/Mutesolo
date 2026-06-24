@@ -109,6 +109,29 @@ type PromptResult struct {
 	DiscordText   string   `json:"discord_text"`
 }
 
+type RequirementEditorPromptRequest struct {
+	Blocks      []map[string]any              `json:"blocks"`
+	TencentDocs []RequirementEditorTencentDoc `json:"tencentDocs"`
+	Attachments []RequirementEditorAttachment `json:"attachments"`
+	PlainText   string                        `json:"plainText"`
+}
+
+type RequirementEditorTencentDoc struct {
+	Type            string `json:"type"`
+	Title           string `json:"title"`
+	URL             string `json:"url"`
+	ReadInstruction string `json:"readInstruction"`
+}
+
+type RequirementEditorAttachment struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	MIMEType string `json:"mimeType"`
+	Size     int64  `json:"size"`
+	Kind     string `json:"kind"`
+	Source   string `json:"source"`
+}
+
 type SendResult struct {
 	Sent       bool   `json:"sent"`
 	Endpoint   string `json:"endpoint"`

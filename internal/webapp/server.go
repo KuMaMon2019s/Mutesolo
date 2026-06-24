@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -27,6 +28,7 @@ func NewServer(store Store, staticDir string) Server {
 
 func (s Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.Handle("/apps/requirement-editor/", http.StripPrefix("/apps/requirement-editor/", http.FileServer(http.Dir(filepath.Join("webapps", "requirement-editor", "dist")))))
 	mux.Handle("/", http.FileServer(http.Dir(s.staticDir)))
 	mux.HandleFunc("/api/state", s.handleState)
 	mux.HandleFunc("/api/config", s.handleConfig)
@@ -37,6 +39,7 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/api/plugin-runtimes", s.handlePluginRuntimes)
 	mux.HandleFunc("/api/projects", s.handleProjects)
 	mux.HandleFunc("/api/projects/", s.handleProjectActions)
+	mux.HandleFunc("/api/generate-prompt", s.handleGeneratePrompt)
 	mux.HandleFunc("/api/github/push", s.handleGitHubPush)
 	return mux
 }
@@ -426,6 +429,23 @@ func (s Server) handleBoardUpdate(w http.ResponseWriter, r *http.Request, projec
 		return
 	}
 	writeJSON(w, updated)
+}
+
+func (s Server) handleGeneratePrompt(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var input RequirementEditorPromptRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	prompt := BuildRequirementEditorPrompt(input.PlainText, input.Blocks, input.TencentDocs, input.Attachments)
+	writeJSON(w, map[string]any{
+		"prompt": prompt,
+		"usage":  "placeholder; connect an online LLM from this backend endpoint only",
+	})
 }
 
 func (s Server) handleGitHubPush(w http.ResponseWriter, r *http.Request) {

@@ -83,3 +83,34 @@ func TestBuildDiscordMessageTargetsTailscaleAgentName(t *testing.T) {
 		t.Fatalf("message does not target tailscale agent name: %q", message)
 	}
 }
+
+func TestBuildRequirementEditorPromptKeepsLocalFilesBehindBackend(t *testing.T) {
+	prompt := BuildRequirementEditorPrompt(
+		"实现登录页",
+		[]map[string]any{{"type": "paragraph"}},
+		[]RequirementEditorTencentDoc{{
+			Type:            "tencent_doc",
+			Title:           "需求说明文档",
+			URL:             "https://docs.qq.com/example",
+			ReadInstruction: "只读取功能需求和接口要求",
+		}},
+		[]RequirementEditorAttachment{{
+			Name:     "flow.png",
+			MIMEType: "image/png",
+			Size:     2048,
+			Kind:     "image",
+			Source:   "local_browser_attachment",
+		}},
+	)
+
+	for _, want := range []string{
+		"Do not request or read localhost paths",
+		"https://docs.qq.com/example",
+		"只读取功能需求和接口要求",
+		"flow.png",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Fatalf("prompt does not contain %q: %q", want, prompt)
+		}
+	}
+}
