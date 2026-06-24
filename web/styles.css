@@ -474,22 +474,24 @@ label,
 }
 
 .taskDetailPanel {
-  display: grid;
-  grid-template-rows: auto auto 1fr;
+  display: block;
   gap: 12px;
 }
 
 .requirementEditorFrame {
+  display: block;
   width: 100%;
-  min-height: 500px;
-  height: 100%;
+  min-height: 360px;
+  height: 520px;
   border: 0;
   border-radius: 12px;
   background: #15191f;
+  overflow: hidden;
 }
 
 .taskMetaForm {
   gap: 10px;
+  margin-bottom: 12px;
 }
 
 .panelHead {

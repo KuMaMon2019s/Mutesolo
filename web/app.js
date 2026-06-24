@@ -798,6 +798,16 @@ async function saveTaskDetail() {
   showTaskView();
 }
 
+window.addEventListener("message", (event) => {
+  if (event.origin !== window.location.origin) return;
+  if (event.data?.type !== "mutisolo.requirementEditor.height") return;
+  const height = Number(event.data.height);
+  if (!Number.isFinite(height)) return;
+  const frame = el("requirementEditorFrame");
+  if (!frame) return;
+  frame.style.height = `${Math.max(360, height)}px`;
+});
+
 function renderSelectionToolbar() {
   const count = state.selectedRequirements.size;
   el("selectionToolbar").classList.toggle("hidden", count === 0);

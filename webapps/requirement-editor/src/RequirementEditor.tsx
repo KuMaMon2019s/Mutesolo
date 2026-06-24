@@ -4,7 +4,7 @@ import "@blocknote/mantine/style.css";
 import type { Block, PartialBlock } from "@blocknote/core";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type TencentDoc = {
   type: "tencent_doc";
@@ -186,6 +186,33 @@ export function RequirementEditor() {
     persistDraft(editor.document as Block[]);
   };
 
+  const postHeight = useCallback(() => {
+    if (!isEmbedded) return;
+    const height = Math.max(
+      document.documentElement.scrollHeight,
+      document.documentElement.offsetHeight,
+      document.documentElement.clientHeight,
+      document.body.scrollHeight,
+      document.body.offsetHeight,
+      document.body.clientHeight
+    );
+    window.parent.postMessage(
+      {
+        type: "mutisolo.requirementEditor.height",
+        height: Math.ceil(height)
+      },
+      window.location.origin
+    );
+  }, [isEmbedded]);
+
+  useEffect(() => {
+    postHeight();
+    const resizeObserver = new ResizeObserver(() => postHeight());
+    resizeObserver.observe(document.documentElement);
+    resizeObserver.observe(document.body);
+    return () => resizeObserver.disconnect();
+  }, [postHeight]);
+
   return (
     <main className={`editorShell ${isEmbedded ? "embedded" : ""}`}>
       {!isEmbedded && (
@@ -216,6 +243,7 @@ export function RequirementEditor() {
             theme="dark"
             onChange={() => {
               persistDraft(editor.document as Block[]);
+              requestAnimationFrame(postHeight);
             }}
           />
         </section>
