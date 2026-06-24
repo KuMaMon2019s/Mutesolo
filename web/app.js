@@ -755,13 +755,16 @@ function renderTaskDetail() {
   if (!requirement) {
     const frame = el("requirementEditorFrame");
     if (frame) frame.removeAttribute("src");
-    const meta = el("taskEditorMeta");
-    if (meta) meta.textContent = "";
+    const title = el("taskTitle");
+    if (title) title.value = "";
     renderAgentSelects();
     return;
   }
-  const meta = el("taskEditorMeta");
-  if (meta) meta.textContent = requirement.title || requirement.id;
+  el("taskTitle").value = requirement.title || "";
+  const priority = requirement.priority || "low";
+  const priorityInput = document.querySelector(`[name=taskPriority][value="${priority}"]`);
+  if (priorityInput) priorityInput.checked = true;
+  renderAgentSelect("taskAgentSelect", normalizeAgentID(requirement.agent_id || defaultAgentID()));
   const params = new URLSearchParams({
     embed: "1",
     project: project.id,
@@ -774,6 +777,25 @@ function renderTaskDetail() {
     const nextSrc = `/apps/requirement-editor/?${params.toString()}`;
     if (frame.getAttribute("src") !== nextSrc) frame.setAttribute("src", nextSrc);
   }
+}
+
+async function saveTaskDetail() {
+  const project = currentProject();
+  if (!project) throw new Error("Create or select a project first");
+  const requirement = currentRequirement(project);
+  if (!requirement) throw new Error("Select or create a requirement first");
+  const updated = await api(`/api/projects/${project.id}/requirements/${encodeURIComponent(requirement.id)}`, {
+    method: "PUT",
+    body: JSON.stringify({
+      title: el("taskTitle").value.trim(),
+      description: requirement.description || "",
+      priority: selectedPriority("taskPriority"),
+      agent_id: selectedAgent("taskAgentSelect"),
+    }),
+  });
+  state.selectedRequirement = updated.id;
+  await loadState();
+  showTaskView();
 }
 
 function renderSelectionToolbar() {
@@ -939,6 +961,9 @@ function renderAgentSelect(selectID, selectedAgent = "") {
 
 function renderAgentSelects() {
   renderAgentSelect("reqAgentSelect", defaultAgentID());
+  const project = currentProject();
+  const requirement = project ? currentRequirement(project) : null;
+  renderAgentSelect("taskAgentSelect", normalizeAgentID(requirement?.agent_id || defaultAgentID()));
 }
 
 function escapeHtml(value) {
@@ -1011,6 +1036,7 @@ bind("kanbanTabBtn", async () => showKanbanTab());
 bind("branchTabBtn", async () => showBranchTab());
 bind("promptBtn", generatePrompt);
 bind("copyDiscordBtn", copyDiscordPrompt);
+bind("saveTaskBtn", saveTaskDetail);
 bind("pushBtn", pushGitHub);
 bind("closeSelectedBtn", closeSelected);
 bind("moveSelectedBranchBtn", moveSelectedRequirementToBranch);

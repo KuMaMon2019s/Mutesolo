@@ -123,7 +123,18 @@
             <section class="panel taskDetailPanel">
               <div class="panelHead">
                 <h2>Requirement</h2>
-                <span id="taskEditorMeta" class="muted"></span>
+                <button id="saveTaskBtn" class="secondary">Save</button>
+              </div>
+              <div class="formStack taskMetaForm">
+                <input id="taskTitle" placeholder="Requirement title" />
+                <div class="priorityChoices taskPriorityChoices">
+                  <label><input type="radio" name="taskPriority" value="no_priority" /> No priority</label>
+                  <label><input type="radio" name="taskPriority" value="low" /> Low</label>
+                  <label><input type="radio" name="taskPriority" value="medium" /> Medium</label>
+                  <label><input type="radio" name="taskPriority" value="high" /> High</label>
+                  <label><input type="radio" name="taskPriority" value="urgent" /> Urgent</label>
+                </div>
+                <select id="taskAgentSelect"></select>
               </div>
               <iframe id="requirementEditorFrame" class="requirementEditorFrame" title="Requirement editor"></iframe>
             </section>
