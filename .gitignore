@@ -1,4 +1,5 @@
 .openclaw/
+.cache/
 .gocache/
 artifacts/*.json
 /opclawctl

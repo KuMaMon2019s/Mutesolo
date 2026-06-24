@@ -611,15 +611,18 @@ button:hover {
   background: var(--card-hover);
 }
 
-.issueCard {
+.issueWrap {
   position: relative;
-  display: grid;
-  gap: 12px;
-  margin-bottom: 12px;
-  margin-left: 18px;
+  margin: 0 0 12px 26px;
 }
 
-.issueCard.selected {
+.issueCard {
+  display: grid;
+  gap: 12px;
+  min-height: 168px;
+}
+
+.issueWrap.selected .issueCard {
   border-color: var(--blue);
   box-shadow: 0 0 0 1px rgba(91, 141, 239, 0.45);
 }

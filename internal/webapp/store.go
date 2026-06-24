@@ -184,7 +184,9 @@ func UpdateRequirements(state *State, projectID string, update BoardUpdate) ([]R
 				if strings.TrimSpace(update.BranchID) != "" {
 					req.BranchID = strings.TrimSpace(update.BranchID)
 				}
-				req.CommitID = strings.TrimSpace(update.CommitID)
+				if strings.TrimSpace(update.CommitID) != "" {
+					req.CommitID = strings.TrimSpace(update.CommitID)
+				}
 				req.UpdatedAt = now
 				updated = append(updated, *req)
 			}

@@ -47,9 +47,7 @@ function showView(viewId) {
 
 function renderProjects() {
   const list = el("projectsList");
-  const select = el("branchSelect");
   list.innerHTML = "";
-  select.innerHTML = "";
   if (!state.projects.length) {
     list.className = "cardsGrid empty";
     list.textContent = "No projects yet";
@@ -58,11 +56,6 @@ function renderProjects() {
   }
   list.className = "cardsGrid";
   for (const project of state.projects) {
-    const option = document.createElement("option");
-    option.value = project.id;
-    option.textContent = project.name;
-    select.append(option);
-
     const card = document.createElement("button");
     card.className = "card";
     card.innerHTML = `<strong>${escapeHtml(project.name)}</strong><span>${escapeHtml(project.description || "")}</span><p class="muted">${(project.requirements || []).length} requirement point(s)</p>`;
@@ -411,16 +404,10 @@ function renderBoard() {
     }
     list.append(lane);
   }
-  document.querySelectorAll("[data-open-req]").forEach((node) => {
-    node.addEventListener("click", () => {
-      state.selectedRequirement = node.dataset.openReq;
-      showView("taskView");
-    });
-  });
   document.querySelectorAll("[data-select-req]").forEach((node) => {
     node.addEventListener("change", () => {
       toggleRequirementSelection(node.dataset.selectReq, node.checked);
-      node.closest(".issueCard")?.classList.toggle("selected", node.checked);
+      node.closest(".issueWrap")?.classList.toggle("selected", node.checked);
     });
   });
   document.querySelectorAll("[data-add-status]").forEach((node) => {
@@ -433,14 +420,16 @@ function renderBoard() {
 }
 
 function renderIssueCard(req, color) {
+  const wrap = document.createElement("div");
+  wrap.className = `issueWrap ${state.selectedRequirements.has(req.id) ? "selected" : ""}`;
+  wrap.innerHTML = `<div class="issueSelect"><input type="checkbox" data-select-req="${escapeHtml(req.id)}" ${state.selectedRequirements.has(req.id) ? "checked" : ""} /></div>`;
   const card = document.createElement("article");
-  card.className = `issueCard ${state.selectedRequirements.has(req.id) ? "selected" : ""}`;
+  card.className = "issueCard";
   card.draggable = true;
   card.addEventListener("dragstart", (event) => event.dataTransfer.setData("text/plain", req.id));
   const status = req.status || "draft";
   const progress = status === "closed" ? "100%" : status === "in_progress" ? "55%" : status === "sent" ? "15%" : "0%";
   card.innerHTML = `
-    <div class="issueSelect"><input type="checkbox" data-select-req="${escapeHtml(req.id)}" ${state.selectedRequirements.has(req.id) ? "checked" : ""} /></div>
     <div class="issueBody">
     <div class="issueTitle">${escapeHtml(req.title)}</div>
     <div class="badges">
@@ -462,15 +451,16 @@ function renderIssueCard(req, color) {
     if (event.target.closest("input,select")) return;
     const selected = !state.selectedRequirements.has(req.id);
     toggleRequirementSelection(req.id, selected);
-    card.classList.toggle("selected", selected);
-    const checkbox = card.querySelector("[data-select-req]");
+    wrap.classList.toggle("selected", selected);
+    const checkbox = wrap.querySelector("[data-select-req]");
     if (checkbox) checkbox.checked = selected;
   });
   card.addEventListener("dblclick", () => {
     state.selectedRequirement = req.id;
     showView("taskView");
   });
-  return card;
+  wrap.append(card);
+  return wrap;
 }
 
 function renderBranchMove(req) {
