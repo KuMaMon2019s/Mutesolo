@@ -61,3 +61,14 @@ func TestBuildDiscordMessageCanMentionBot(t *testing.T) {
 		t.Fatalf("message does not mention bot: %q", message)
 	}
 }
+
+func TestBuildDiscordMessageTargetsAssignedAgent(t *testing.T) {
+	project := Project{Name: "Console"}
+	req := Requirement{ID: "req-1", Title: "Status panel", AgentID: "openclaw-b"}
+
+	message := BuildDiscordMessage(project, req, "do the work")
+
+	if !strings.Contains(message, "OpenClaw B task") {
+		t.Fatalf("message does not target assigned agent: %q", message)
+	}
+}

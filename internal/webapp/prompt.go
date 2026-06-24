@@ -76,7 +76,7 @@ func BuildDiscordMessageForBot(project Project, req Requirement, prompt string, 
 	if botID != "" {
 		mention = fmt.Sprintf("<@%s>\n\n", botID)
 	}
-	return strings.TrimSpace(fmt.Sprintf(`OpenClaw A task
+	return strings.TrimSpace(fmt.Sprintf(`%s task
 
 %sProject: %s
 Requirement: %s
@@ -86,5 +86,16 @@ After completing the work, commit to GitHub and reply with:
 commit: <sha>
 
 Prompt:
-%s`, mention, project.Name, req.Title, req.ID, prompt))
+%s`, agentDisplayName(req.AgentID), mention, project.Name, req.Title, req.ID, prompt))
+}
+
+func agentDisplayName(agentID string) string {
+	switch strings.TrimSpace(agentID) {
+	case "openclaw-b":
+		return "OpenClaw B"
+	case "openclaw-c":
+		return "OpenClaw C"
+	default:
+		return "OpenClaw A"
+	}
 }

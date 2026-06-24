@@ -10,6 +10,10 @@
     <main class="appShell">
       <aside id="navRail" class="navRail">
         <button id="collapseNavBtn" class="navToggle" title="Collapse menu">M</button>
+        <div class="statusPill">
+          <strong id="todoRatio">0%</strong>
+          <span>TO DO</span>
+        </div>
         <nav>
           <button class="navIcon active" data-view="projectsView" title="Projects">P</button>
           <button class="navIcon" data-view="boardView" title="Board">B</button>
@@ -22,10 +26,6 @@
       <aside id="moduleSidebar" class="moduleSidebar">
         <h2>Tracker</h2>
         <input class="searchInput" placeholder="Search..." />
-        <div class="statusPill">
-          <strong id="todoRatio">0%</strong>
-          <span>TO DO</span>
-        </div>
         <nav class="sideNav">
           <button class="sideLink active" data-view="projectsView">All project</button>
         </nav>
@@ -85,11 +85,12 @@
           </div>
           <div class="kanbanPanel">
             <div class="tabs">
-              <button class="tab active">Kanban</button>
-              <button class="tab">Branch</button>
+              <button id="kanbanTabBtn" class="tab active">Kanban</button>
+              <button id="branchTabBtn" class="tab">Branch</button>
               <button class="tab ghost">Filter</button>
             </div>
             <div id="boardList" class="kanbanBoard empty">No requirements</div>
+            <div id="branchList" class="branchList hidden"></div>
           </div>
         </section>
 
@@ -241,6 +242,19 @@
             <textarea id="reqDesc" placeholder="Requirement detail"></textarea>
           </div>
           <button id="addReqBtn">Add</button>
+        </section>
+      </div>
+
+      <div id="branchModal" class="modalOverlay hidden">
+        <section class="modal compactModal">
+          <div class="modalHead">
+            <h2>New Branch</h2>
+            <button id="closeBranchModalBtn" class="secondary">Close</button>
+          </div>
+          <div class="formStack">
+            <input id="branchName" placeholder="Branch name" />
+          </div>
+          <button id="confirmBranchBtn">Create Branch</button>
         </section>
       </div>
     </main>

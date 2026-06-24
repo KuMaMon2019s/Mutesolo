@@ -80,3 +80,34 @@ func TestRequirementCanMoveToBranch(t *testing.T) {
 		t.Fatalf("branch id = %q, want %q", updated.Requirements[0].BranchID, branch.ID)
 	}
 }
+
+func TestRequirementCanAssignAgentWithoutChangingStatus(t *testing.T) {
+	state := State{}
+	project := UpsertProject(&state, Project{Name: "Console"})
+	req, ok := AddRequirement(&state, project.ID, Requirement{Title: "Assign me", Status: "sent"})
+	if !ok {
+		t.Fatal("AddRequirement did not find project")
+	}
+	if req.AgentID != "openclaw-a" {
+		t.Fatalf("default agent = %q, want openclaw-a", req.AgentID)
+	}
+
+	_, ok = UpdateRequirements(&state, project.ID, BoardUpdate{
+		RequirementIDs: []string{req.ID},
+		AgentID:        "openclaw-b",
+	})
+	if !ok {
+		t.Fatal("UpdateRequirements did not find project")
+	}
+
+	updated, ok := FindProject(state, project.ID)
+	if !ok {
+		t.Fatal("FindProject did not find project")
+	}
+	if updated.Requirements[0].AgentID != "openclaw-b" {
+		t.Fatalf("agent id = %q, want openclaw-b", updated.Requirements[0].AgentID)
+	}
+	if updated.Requirements[0].Status != "sent" {
+		t.Fatalf("status = %q, want sent", updated.Requirements[0].Status)
+	}
+}

@@ -6,6 +6,7 @@ const state = {
   selectedSkill: "",
   selectedRequirements: new Set(),
   newRequirementStatus: "draft",
+  boardTab: "kanban",
   discordText: "",
 };
 
@@ -87,8 +88,10 @@ function renderSideProjects() {
   }
   list.className = "sideProjectLinks";
   for (const project of state.projects) {
+    const group = document.createElement("div");
+    group.className = "projectTree";
     const button = document.createElement("button");
-    button.className = "sideLink";
+    button.className = `sideLink projectLink ${project.id === state.selectedProject ? "active" : ""}`;
     button.textContent = project.name;
     button.addEventListener("click", () => {
       state.selectedProject = project.id;
@@ -100,7 +103,20 @@ function renderSideProjects() {
       renderBoard();
       showView("boardView");
     });
-    list.append(button);
+    group.append(button);
+    if (project.id === state.selectedProject) {
+      const branches = document.createElement("div");
+      branches.className = "branchTree";
+      for (const branch of normalizedBranches(project)) {
+        const branchButton = document.createElement("button");
+        branchButton.className = `sideLink branchLink ${branch.id === state.selectedBranch ? "active" : ""}`;
+        branchButton.textContent = branch.name;
+        branchButton.addEventListener("click", () => selectBranch(project.id, branch.id));
+        branches.append(branchButton);
+      }
+      group.append(branches);
+    }
+    list.append(group);
   }
 }
 
@@ -126,6 +142,7 @@ function renderBranches() {
     select.append(option);
   }
   select.value = state.selectedBranch;
+  renderBranchList();
 }
 
 async function saveConfig() {
@@ -270,13 +287,16 @@ async function createProject() {
 async function createBranch() {
   const project = currentProject();
   if (!project) throw new Error("Create or select a project first");
-  const name = prompt("Branch name");
-  if (!name || !name.trim()) return;
+  const name = el("branchName").value.trim();
+  if (!name) throw new Error("Branch name is required");
   const branch = await api(`/api/projects/${project.id}/branches`, {
     method: "POST",
-    body: JSON.stringify({ name: name.trim() }),
+    body: JSON.stringify({ name }),
   });
   state.selectedBranch = branch.id;
+  state.boardTab = "kanban";
+  closeBranchModal();
+  el("branchName").value = "";
   await loadState();
   showView("boardView");
 }
@@ -292,6 +312,7 @@ async function addRequirement() {
       priority: selectedPriority(),
       status: state.newRequirementStatus || "draft",
       branch_id: state.selectedBranch || firstBranch(project).id,
+      agent_id: "openclaw-a",
     }),
   });
   state.selectedRequirement = req.id;
@@ -382,6 +403,8 @@ function renderBoard() {
     list.className = "kanbanBoard empty";
     list.textContent = "No requirements";
     renderSelectionToolbar();
+    renderBranchList();
+    renderBoardMode();
     return;
   }
   list.className = "kanbanBoard";
@@ -416,7 +439,12 @@ function renderBoard() {
   document.querySelectorAll("[data-move-branch]").forEach((node) => {
     node.addEventListener("change", () => moveRequirementToBranch(node.dataset.moveBranch, node.value));
   });
+  document.querySelectorAll("[data-agent-req]").forEach((node) => {
+    node.addEventListener("change", () => assignRequirementAgent(node.dataset.agentReq, node.value));
+  });
   renderSelectionToolbar();
+  renderBranchList();
+  renderBoardMode();
 }
 
 function renderIssueCard(req, color) {
@@ -428,23 +456,21 @@ function renderIssueCard(req, color) {
   card.draggable = true;
   card.addEventListener("dragstart", (event) => event.dataTransfer.setData("text/plain", req.id));
   const status = req.status || "draft";
-  const progress = status === "closed" ? "100%" : status === "in_progress" ? "55%" : status === "sent" ? "15%" : "0%";
+  const agentID = req.agent_id || "openclaw-a";
   card.innerHTML = `
     <div class="issueBody">
     <div class="issueTitle">${escapeHtml(req.title)}</div>
     <div class="badges">
       <span class="badge ${priorityClass(req.priority)}">${priorityLabel(req.priority)}</span>
-      <span class="badge agent">OpenClaw</span>
+      <span class="badge agent">${escapeHtml(agentLabel(agentID))}</span>
     </div>
-    <div class="issueMeta">
-      <span class="progressRing"></span>
-      <span class="muted">${progress}</span>
-      ${req.commit_id ? `<span class="muted">${escapeHtml(req.commit_id)}</span>` : ""}
-    </div>
-    <div class="avatars">
+    <div class="assigneeRow">
       <span class="avatar">A</span>
-      <span class="muted">${escapeHtml(req.id.slice(0, 8))}</span>
+      <select class="agentSelect" data-agent-req="${escapeHtml(req.id)}">
+        ${agentOptions(agentID)}
+      </select>
     </div>
+    ${req.commit_id ? `<div class="issueMeta"><span class="muted">${escapeHtml(req.commit_id)}</span></div>` : ""}
     ${status === "draft" ? renderBranchMove(req) : ""}
     </div>`;
   card.addEventListener("click", (event) => {
@@ -471,6 +497,70 @@ function renderBranchMove(req) {
     .join("");
   if (!options) return "";
   return `<select data-move-branch="${escapeHtml(req.id)}"><option value="">Move to branch...</option>${options}</select>`;
+}
+
+function renderBranchList() {
+  const list = el("branchList");
+  const project = currentProject();
+  list.innerHTML = "";
+  if (!project) {
+    list.className = "branchList empty";
+    list.textContent = "No project selected";
+    return;
+  }
+  list.className = "branchList";
+  const requirements = project.requirements || [];
+  for (const branch of normalizedBranches(project)) {
+    const branchRequirements = requirements.filter((req) => (req.branch_id || firstBranch(project).id) === branch.id);
+    const card = document.createElement("button");
+    card.className = `branchCard ${branch.id === state.selectedBranch ? "active" : ""}`;
+    card.innerHTML = `
+      <strong>${escapeHtml(branch.name)}</strong>
+      <span>${branchRequirements.length} requirement point(s)</span>
+      <div class="branchStats">
+        <span>Backlog ${countStatus(branchRequirements, "draft")}</span>
+        <span>To do ${countStatus(branchRequirements, "sent")}</span>
+        <span>Progress ${countStatus(branchRequirements, "in_progress")}</span>
+      </div>`;
+    card.addEventListener("click", () => selectBranch(project.id, branch.id));
+    list.append(card);
+  }
+}
+
+function renderBoardMode() {
+  const showBranches = state.boardTab === "branch";
+  el("boardList").classList.toggle("hidden", showBranches);
+  el("branchList").classList.toggle("hidden", !showBranches);
+  el("kanbanTabBtn").classList.toggle("active", !showBranches);
+  el("branchTabBtn").classList.toggle("active", showBranches);
+}
+
+function showKanbanTab() {
+  state.boardTab = "kanban";
+  renderBoardMode();
+}
+
+function showBranchTab() {
+  state.boardTab = "branch";
+  renderBranchList();
+  renderBoardMode();
+}
+
+function selectBranch(projectID, branchID) {
+  state.selectedProject = projectID;
+  state.selectedBranch = branchID;
+  state.selectedRequirement = "";
+  state.selectedRequirements.clear();
+  state.boardTab = "kanban";
+  pickLatestRequirement();
+  renderBranches();
+  renderSideProjects();
+  renderBoard();
+  showView("boardView");
+}
+
+function countStatus(requirements, status) {
+  return requirements.filter((req) => (req.status || "draft") === status || (status === "draft" && !req.status)).length;
 }
 
 function toggleRequirementSelection(reqID, selected) {
@@ -518,6 +608,17 @@ async function moveRequirementToBranch(reqID, branchID) {
   await loadState();
 }
 
+async function assignRequirementAgent(reqID, agentID) {
+  if (!reqID || !agentID) return;
+  const project = currentProject();
+  if (!project) return;
+  await api(`/api/projects/${project.id}/board`, {
+    method: "POST",
+    body: JSON.stringify({ requirement_ids: [reqID], agent_id: agentID }),
+  });
+  await loadState();
+}
+
 function renderSelectionToolbar() {
   const count = state.selectedRequirements.size;
   el("selectionToolbar").classList.toggle("hidden", count === 0);
@@ -543,6 +644,15 @@ function closeRequirementModal() {
   el("requirementModal").classList.add("hidden");
 }
 
+function openBranchModal() {
+  el("branchModal").classList.remove("hidden");
+  el("branchName").focus();
+}
+
+function closeBranchModal() {
+  el("branchModal").classList.add("hidden");
+}
+
 function selectedPriority() {
   return document.querySelector("[name=reqPriority]:checked")?.value || "low";
 }
@@ -565,6 +675,24 @@ function priorityClass(priority) {
     medium: "medium",
     low: "low",
   }[priority || "low"] || "low";
+}
+
+function agentLabel(agentID) {
+  return {
+    "openclaw-a": "OpenClaw A",
+    "openclaw-b": "OpenClaw B",
+    "openclaw-c": "OpenClaw C",
+  }[agentID || "openclaw-a"] || "OpenClaw A";
+}
+
+function agentOptions(selectedAgent) {
+  return [
+    ["openclaw-a", "OpenClaw A"],
+    ["openclaw-b", "OpenClaw B"],
+    ["openclaw-c", "OpenClaw C"],
+  ]
+    .map(([value, label]) => `<option value="${value}" ${value === selectedAgent ? "selected" : ""}>${label}</option>`)
+    .join("");
 }
 
 function escapeHtml(value) {
@@ -592,7 +720,9 @@ el("branchSelect").addEventListener("change", () => {
   state.selectedBranch = el("branchSelect").value;
   state.selectedRequirement = "";
   state.selectedRequirements.clear();
+  state.boardTab = "kanban";
   pickLatestRequirement();
+  renderSideProjects();
   renderBoard();
 });
 
@@ -603,10 +733,14 @@ bind("refreshBtn", async () => {
 });
 bind("saveConfigBtn", saveConfig);
 bind("createProjectBtn", createProject);
-bind("createBranchBtn", createBranch);
+bind("createBranchBtn", async () => openBranchModal());
+bind("confirmBranchBtn", createBranch);
 bind("addReqBtn", addRequirement);
 bind("openRequirementModalBtn", async () => openRequirementModal("draft"));
 bind("closeRequirementModalBtn", async () => closeRequirementModal());
+bind("closeBranchModalBtn", async () => closeBranchModal());
+bind("kanbanTabBtn", async () => showKanbanTab());
+bind("branchTabBtn", async () => showBranchTab());
 bind("promptBtn", generatePrompt);
 bind("copyDiscordBtn", copyDiscordPrompt);
 bind("openDiscordBtn", async () => openDiscord());

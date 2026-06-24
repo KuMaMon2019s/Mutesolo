@@ -131,6 +131,9 @@ func AddRequirement(state *State, projectID string, input Requirement) (Requirem
 		if input.Priority == "" {
 			input.Priority = "low"
 		}
+		if input.AgentID == "" {
+			input.AgentID = "openclaw-a"
+		}
 		if input.Status == "" {
 			input.Status = "draft"
 		}
@@ -168,9 +171,6 @@ func UpdateRequirements(state *State, projectID string, update BoardUpdate) ([]R
 		ids[id] = true
 	}
 	status := strings.TrimSpace(update.Status)
-	if status == "" {
-		status = "closed"
-	}
 	updated := make([]Requirement, 0, len(ids))
 	for pi := range state.Projects {
 		if state.Projects[pi].ID != projectID {
@@ -180,9 +180,14 @@ func UpdateRequirements(state *State, projectID string, update BoardUpdate) ([]R
 		for ri := range state.Projects[pi].Requirements {
 			req := &state.Projects[pi].Requirements[ri]
 			if ids[req.ID] {
-				req.Status = status
+				if status != "" {
+					req.Status = status
+				}
 				if strings.TrimSpace(update.BranchID) != "" {
 					req.BranchID = strings.TrimSpace(update.BranchID)
+				}
+				if strings.TrimSpace(update.AgentID) != "" {
+					req.AgentID = strings.TrimSpace(update.AgentID)
 				}
 				if strings.TrimSpace(update.CommitID) != "" {
 					req.CommitID = strings.TrimSpace(update.CommitID)
@@ -217,6 +222,9 @@ func ensureProjectDefaults(project *Project) {
 		}
 		if project.Requirements[i].Priority == "" {
 			project.Requirements[i].Priority = "low"
+		}
+		if project.Requirements[i].AgentID == "" {
+			project.Requirements[i].AgentID = "openclaw-a"
 		}
 	}
 }

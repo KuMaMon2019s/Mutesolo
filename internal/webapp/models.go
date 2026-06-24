@@ -38,6 +38,7 @@ type Requirement struct {
 	Description string    `json:"description"`
 	Priority    string    `json:"priority"`
 	Status      string    `json:"status"`
+	AgentID     string    `json:"agent_id,omitempty"`
 	Prompt      string    `json:"prompt,omitempty"`
 	CommitID    string    `json:"commit_id,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
@@ -98,6 +99,7 @@ type SendResult struct {
 type BoardUpdate struct {
 	RequirementIDs []string `json:"requirement_ids"`
 	BranchID       string   `json:"branch_id,omitempty"`
+	AgentID        string   `json:"agent_id,omitempty"`
 	CommitID       string   `json:"commit_id"`
 	Status         string   `json:"status"`
 }
