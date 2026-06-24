@@ -52,6 +52,15 @@ function showView(viewId) {
   el(viewId).classList.add("activeView");
 }
 
+function showBoardView() {
+  ensureProjectSelection();
+  pickLatestRequirement();
+  renderBranches();
+  renderSideProjects();
+  renderBoard();
+  showView("boardView");
+}
+
 function renderProjects() {
   const list = el("projectsList");
   list.innerHTML = "";
@@ -471,6 +480,17 @@ function currentProject() {
   return state.projects.find((project) => project.id === selected) || null;
 }
 
+function ensureProjectSelection() {
+  if (currentProject()) return;
+  const project = state.projects.find((item) => (item.requirements || []).length > 0) || state.projects[0];
+  if (!project) return;
+  state.selectedProject = project.id;
+  state.selectedBranch = firstBranch(project).id;
+  state.selectedRequirement = "";
+  state.selectedRequirements.clear();
+  state.boardTab = "kanban";
+}
+
 function currentRequirement(project) {
   const requirements = currentBranchRequirements(project);
   return requirements.find((req) => req.id === state.selectedRequirement) || requirements.at(-1);
@@ -857,6 +877,10 @@ document.querySelectorAll("[data-view]").forEach((node) => {
   node.addEventListener("click", () => {
     if (node.dataset.view === "projectsView") {
       showProjectList();
+      return;
+    }
+    if (node.dataset.view === "boardView") {
+      showBoardView();
       return;
     }
     showView(node.dataset.view);
