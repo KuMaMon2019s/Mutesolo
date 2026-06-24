@@ -75,7 +75,13 @@
               <div id="openClawStrip" class="openClawStrip empty">Loading OpenClaw devices...</div>
             </div>
             <div class="buttonRow">
-              <select id="branchSelect"></select>
+              <div id="branchDropdown" class="dropdown">
+                <button id="branchDropdownBtn" class="dropdownTrigger" type="button">
+                  <span id="branchDropdownLabel">No project</span>
+                  <span class="dropdownChevron"></span>
+                </button>
+                <div id="branchDropdownMenu" class="dropdownMenu hidden"></div>
+              </div>
               <button id="createBranchBtn" class="secondary">Branch</button>
               <button id="openRequirementModalBtn">New Requirement</button>
             </div>

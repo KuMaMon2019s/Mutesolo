@@ -141,27 +141,35 @@ function pickLatestRequirement() {
 }
 
 function renderBranches() {
-  const select = el("branchSelect");
   const project = currentProject();
-  select.innerHTML = "";
+  const label = el("branchDropdownLabel");
+  const button = el("branchDropdownBtn");
+  const menu = el("branchDropdownMenu");
+  menu.innerHTML = "";
   if (!project) {
-    select.disabled = true;
-    select.innerHTML = `<option value="">No project</option>`;
+    label.textContent = "No project";
+    button.disabled = true;
+    closeBranchDropdown();
     renderBranchList();
     return;
   }
-  select.disabled = false;
+  button.disabled = false;
   const branches = normalizedBranches(project);
   if (!state.selectedBranch || !branches.some((branch) => branch.id === state.selectedBranch)) {
     state.selectedBranch = branches[0].id;
   }
   for (const branch of branches) {
-    const option = document.createElement("option");
-    option.value = branch.id;
-    option.textContent = branch.name;
-    select.append(option);
+    const item = document.createElement("button");
+    item.className = `dropdownItem ${branch.id === state.selectedBranch ? "active" : ""}`;
+    item.type = "button";
+    item.innerHTML = `<span>${escapeHtml(branch.name)}</span><span class="dropdownCheck">${branch.id === state.selectedBranch ? "✓" : ""}</span>`;
+    item.addEventListener("click", () => {
+      selectBranch(project.id, branch.id);
+      closeBranchDropdown();
+    });
+    menu.append(item);
   }
-  select.value = state.selectedBranch;
+  label.textContent = branches.find((branch) => branch.id === state.selectedBranch)?.name || "Branch";
   renderBranchList();
 }
 
@@ -247,34 +255,60 @@ function renderOpenClawStrip(tailnet = "") {
   const strip = el("openClawStrip");
   if (!strip) return;
   strip.innerHTML = "";
-  const online = state.tailscaleDevices.filter((device) => device.online);
-  if (!online.length) {
+  if (!state.tailscaleDevices.length) {
     strip.className = "openClawStrip empty";
-    strip.textContent = state.tailscaleError ? `Tailscale unavailable: ${state.tailscaleError}` : "No online OpenClaw devices";
+    strip.textContent = state.tailscaleError ? `Tailscale unavailable: ${state.tailscaleError}` : "No Tailscale devices";
     return;
   }
   strip.className = "openClawStrip";
   const label = document.createElement("span");
   label.className = "stripLabel";
-  label.textContent = tailnet ? `Online OpenClaw · ${tailnet}` : "Online OpenClaw";
+  label.textContent = tailnet ? `OpenClaw · ${tailnet}` : "OpenClaw";
   strip.append(label);
-  for (const device of online) {
+  const avatars = document.createElement("div");
+  avatars.className = "openClawAvatars";
+  for (const device of state.tailscaleDevices) {
+    const name = tailscaleDeviceName(device);
     const node = document.createElement("button");
-    node.className = "openClawChip";
-    node.title = device.openclaw_url || device.dns_name || device.ip || device.name;
-    node.innerHTML = `<span class="onlineDot"></span><strong>${escapeHtml(shortDeviceName(device.name))}</strong><span>${escapeHtml(device.ip || "")}</span>`;
+    node.className = `openClawAvatar ${device.online ? "online" : "offline"}`;
+    node.style.setProperty("--avatar-bg", avatarColor(name));
+    node.title = `${name} · ${device.online ? "online" : "offline"}${device.ip ? " · " + device.ip : ""}`;
+    node.innerHTML = `
+      <span class="avatarFace">${escapeHtml(avatarText(name))}</span>
+      <span class="presenceDot"></span>
+      <span class="avatarName">${escapeHtml(name)}</span>`;
     if (device.openclaw_url) {
       node.addEventListener("click", () => {
         el("openclawUrl").value = device.openclaw_url;
         saveConfig().catch((error) => alert(error.message));
       });
     }
-    strip.append(node);
+    avatars.append(node);
   }
+  strip.append(avatars);
+}
+
+function tailscaleDeviceName(device) {
+  const dnsLabel = String(device.dns_name || "").split(".")[0];
+  return dnsLabel || shortDeviceName(device.name) || "OpenClaw";
 }
 
 function shortDeviceName(name) {
-  return String(name || "OpenClaw").replace(/的MacBook Pro|的Mac mini|MacBook Pro|Mac mini/g, "").trim() || name || "OpenClaw";
+  return String(name || "")
+    .replace(/的MacBook Pro|的Mac mini|MacBook Pro|Mac mini/g, "")
+    .trim();
+}
+
+function avatarText(name) {
+  const compact = String(name || "OC").replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, "");
+  return compact.slice(0, 2).toUpperCase() || "OC";
+}
+
+function avatarColor(value) {
+  const palette = ["#5b8def", "#4dc89a", "#f1bd6c", "#e989d8", "#ff8b66", "#7c8cff", "#44b4a6"];
+  let hash = 0;
+  for (const char of String(value || "openclaw")) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return palette[hash % palette.length];
 }
 
 async function loadSkills() {
@@ -750,6 +784,15 @@ function closeBranchModal() {
   el("branchModal").classList.add("hidden");
 }
 
+function toggleBranchDropdown() {
+  if (el("branchDropdownBtn").disabled) return;
+  el("branchDropdownMenu").classList.toggle("hidden");
+}
+
+function closeBranchDropdown() {
+  el("branchDropdownMenu").classList.add("hidden");
+}
+
 function selectedPriority() {
   return document.querySelector("[name=reqPriority]:checked")?.value || "low";
 }
@@ -819,16 +862,6 @@ document.querySelectorAll("[data-view]").forEach((node) => {
     showView(node.dataset.view);
   });
 });
-el("branchSelect").addEventListener("change", () => {
-  state.selectedBranch = el("branchSelect").value;
-  state.selectedRequirement = "";
-  state.selectedRequirements.clear();
-  state.boardTab = "kanban";
-  pickLatestRequirement();
-  renderSideProjects();
-  renderBoard();
-});
-
 function showProjectList() {
   state.selectedProject = "";
   state.selectedBranch = "";
@@ -853,6 +886,7 @@ bind("refreshBtn", async () => {
   await refreshConnections();
 });
 bind("allProjectsBtn", async () => showProjectList());
+bind("branchDropdownBtn", async () => toggleBranchDropdown());
 bind("saveConfigBtn", saveConfig);
 bind("createProjectBtn", createProject);
 bind("createBranchBtn", async () => openBranchModal());
@@ -873,5 +907,8 @@ bind("moveSelectedBranchBtn", moveSelectedRequirementToBranch);
 bind("loadSkillsBtn", loadSkills);
 bind("installSkillBtn", installSelectedSkill);
 el("selectedBranchMoveSelect").addEventListener("change", updateMoveButtonState);
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#branchDropdown")) closeBranchDropdown();
+});
 
 loadState().then(refreshConnections).catch((error) => alert(error.message));
