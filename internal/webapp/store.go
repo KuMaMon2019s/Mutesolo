@@ -38,6 +38,7 @@ func (s Store) Load() (State, error) {
 		if err := json.Unmarshal(data, &state); err != nil {
 			return State{}, fmt.Errorf("decode web state: %w", err)
 		}
+		ensureStateDefaults(&state)
 		return state, nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
@@ -79,6 +80,9 @@ func UpsertProject(state *State, input Project) Project {
 		input.CreatedAt = now
 	}
 	input.UpdatedAt = now
+	if len(input.Branches) == 0 {
+		input.Branches = []ProjectBranch{{ID: "main", Name: "Main", CreatedAt: now}}
+	}
 	if input.Requirements == nil {
 		input.Requirements = []Requirement{}
 	}
@@ -90,12 +94,22 @@ func UpsertProject(state *State, input Project) Project {
 			if input.Requirements == nil {
 				input.Requirements = project.Requirements
 			}
+			if len(input.Branches) == 0 {
+				input.Branches = project.Branches
+			}
 			state.Projects[i] = input
-			return input
+			ensureProjectDefaults(&state.Projects[i])
+			return state.Projects[i]
 		}
 	}
 	state.Projects = append(state.Projects, input)
+	ensureProjectDefaults(&state.Projects[len(state.Projects)-1])
 	sortProjects(state.Projects)
+	for _, project := range state.Projects {
+		if project.ID == input.ID {
+			return project
+		}
+	}
 	return input
 }
 
@@ -105,10 +119,17 @@ func AddRequirement(state *State, projectID string, input Requirement) (Requirem
 		if state.Projects[pi].ID != projectID {
 			continue
 		}
+		ensureProjectDefaults(&state.Projects[pi])
 		input.Title = strings.TrimSpace(input.Title)
 		if input.ID == "" {
 			input.ID = newID(input.Title)
 			input.CreatedAt = now
+		}
+		if input.BranchID == "" {
+			input.BranchID = state.Projects[pi].Branches[0].ID
+		}
+		if input.Priority == "" {
+			input.Priority = "low"
 		}
 		if input.Status == "" {
 			input.Status = "draft"
@@ -119,6 +140,25 @@ func AddRequirement(state *State, projectID string, input Requirement) (Requirem
 		return input, true
 	}
 	return Requirement{}, false
+}
+
+func AddBranch(state *State, projectID string, name string) (ProjectBranch, bool) {
+	now := time.Now().UTC()
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "Branch"
+	}
+	for pi := range state.Projects {
+		if state.Projects[pi].ID != projectID {
+			continue
+		}
+		ensureProjectDefaults(&state.Projects[pi])
+		branch := ProjectBranch{ID: newID(name), Name: name, CreatedAt: now}
+		state.Projects[pi].Branches = append(state.Projects[pi].Branches, branch)
+		state.Projects[pi].UpdatedAt = now
+		return branch, true
+	}
+	return ProjectBranch{}, false
 }
 
 func UpdateRequirements(state *State, projectID string, update BoardUpdate) ([]Requirement, bool) {
@@ -136,10 +176,14 @@ func UpdateRequirements(state *State, projectID string, update BoardUpdate) ([]R
 		if state.Projects[pi].ID != projectID {
 			continue
 		}
+		ensureProjectDefaults(&state.Projects[pi])
 		for ri := range state.Projects[pi].Requirements {
 			req := &state.Projects[pi].Requirements[ri]
 			if ids[req.ID] {
 				req.Status = status
+				if strings.TrimSpace(update.BranchID) != "" {
+					req.BranchID = strings.TrimSpace(update.BranchID)
+				}
 				req.CommitID = strings.TrimSpace(update.CommitID)
 				req.UpdatedAt = now
 				updated = append(updated, *req)
@@ -149,6 +193,30 @@ func UpdateRequirements(state *State, projectID string, update BoardUpdate) ([]R
 		return updated, true
 	}
 	return nil, false
+}
+
+func ensureStateDefaults(state *State) {
+	for i := range state.Projects {
+		ensureProjectDefaults(&state.Projects[i])
+	}
+}
+
+func ensureProjectDefaults(project *Project) {
+	if len(project.Branches) == 0 {
+		created := project.CreatedAt
+		if created.IsZero() {
+			created = time.Now().UTC()
+		}
+		project.Branches = []ProjectBranch{{ID: "main", Name: "Main", CreatedAt: created}}
+	}
+	for i := range project.Requirements {
+		if project.Requirements[i].BranchID == "" {
+			project.Requirements[i].BranchID = project.Branches[0].ID
+		}
+		if project.Requirements[i].Priority == "" {
+			project.Requirements[i].Priority = "low"
+		}
+	}
 }
 
 func FindProject(state State, id string) (Project, bool) {

@@ -612,14 +612,33 @@ button:hover {
 }
 
 .issueCard {
+  position: relative;
   display: grid;
   gap: 12px;
   margin-bottom: 12px;
+  margin-left: 18px;
 }
 
 .issueCard.selected {
   border-color: var(--blue);
   box-shadow: 0 0 0 1px rgba(91, 141, 239, 0.45);
+}
+
+.issueSelect {
+  position: absolute;
+  left: -26px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.issueSelect input {
+  width: 18px;
+  height: 18px;
+}
+
+.issueBody {
+  display: grid;
+  gap: 12px;
 }
 
 .issueTitle {
@@ -646,6 +665,18 @@ button:hover {
 
 .badge.low {
   background: #a8d5ff;
+}
+
+.badge.none {
+  background: #9aa5b5;
+}
+
+.badge.urgent {
+  background: #ff6b6b;
+}
+
+.badge.high {
+  background: #f08bff;
 }
 
 .badge.medium {
@@ -781,6 +812,26 @@ button:hover {
 
 .modal textarea {
   min-height: 150px;
+}
+
+.priorityChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.priorityChoices label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #10141a;
+  padding: 7px 10px;
+}
+
+.priorityChoices input {
+  width: auto;
 }
 
 pre {

@@ -14,20 +14,29 @@ type Config struct {
 }
 
 type Project struct {
-	ID           string        `json:"id"`
-	Name         string        `json:"name"`
-	Description  string        `json:"description"`
-	Plan         string        `json:"plan"`
-	Docs         string        `json:"docs"`
-	Requirements []Requirement `json:"requirements"`
-	CreatedAt    time.Time     `json:"created_at"`
-	UpdatedAt    time.Time     `json:"updated_at"`
+	ID           string          `json:"id"`
+	Name         string          `json:"name"`
+	Description  string          `json:"description"`
+	Plan         string          `json:"plan"`
+	Docs         string          `json:"docs"`
+	Branches     []ProjectBranch `json:"branches"`
+	Requirements []Requirement   `json:"requirements"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
+}
+
+type ProjectBranch struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Requirement struct {
 	ID          string    `json:"id"`
+	BranchID    string    `json:"branch_id,omitempty"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
+	Priority    string    `json:"priority"`
 	Status      string    `json:"status"`
 	Prompt      string    `json:"prompt,omitempty"`
 	CommitID    string    `json:"commit_id,omitempty"`
@@ -88,6 +97,7 @@ type SendResult struct {
 
 type BoardUpdate struct {
 	RequirementIDs []string `json:"requirement_ids"`
+	BranchID       string   `json:"branch_id,omitempty"`
 	CommitID       string   `json:"commit_id"`
 	Status         string   `json:"status"`
 }

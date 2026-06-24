@@ -23,12 +23,11 @@
         <h2>Tracker</h2>
         <input class="searchInput" placeholder="Search..." />
         <div class="statusPill">
-          <strong>56%</strong>
+          <strong id="todoRatio">0%</strong>
           <span>TO DO</span>
         </div>
         <nav class="sideNav">
-          <button class="sideLink active" data-view="projectsView">My projects</button>
-          <button class="sideLink" data-view="boardView">All requirements</button>
+          <button class="sideLink active" data-view="projectsView">All project</button>
         </nav>
         <div class="sideSection">
           <div class="sideTitle">Your Projects</div>
@@ -75,7 +74,8 @@
               <p class="muted">Select requirement cards, move them across lanes, or archive them in bulk.</p>
             </div>
             <div class="buttonRow">
-              <select id="projectSelect"></select>
+              <select id="branchSelect"></select>
+              <button id="createBranchBtn" class="secondary">Branch</button>
               <button id="openRequirementModalBtn">New Requirement</button>
             </div>
           </div>
@@ -232,6 +232,13 @@
           </div>
           <div class="formStack">
             <input id="reqTitle" placeholder="Requirement title" />
+            <div class="priorityChoices">
+              <label><input type="radio" name="reqPriority" value="no_priority" /> No priority</label>
+              <label><input type="radio" name="reqPriority" value="urgent" /> Urgent</label>
+              <label><input type="radio" name="reqPriority" value="high" /> High</label>
+              <label><input type="radio" name="reqPriority" value="medium" /> Medium</label>
+              <label><input type="radio" name="reqPriority" value="low" checked /> Low</label>
+            </div>
             <textarea id="reqDesc" placeholder="Requirement detail"></textarea>
           </div>
           <button id="addReqBtn">Add</button>

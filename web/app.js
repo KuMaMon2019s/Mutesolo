@@ -1,6 +1,7 @@
 const state = {
   projects: [],
   selectedProject: "",
+  selectedBranch: "",
   selectedRequirement: "",
   selectedSkill: "",
   selectedRequirements: new Set(),
@@ -35,6 +36,7 @@ async function loadState() {
   renderDiscordWidget();
   renderProjects();
   renderBoard();
+  renderTodoRatio();
 }
 
 function showView(viewId) {
@@ -45,7 +47,7 @@ function showView(viewId) {
 
 function renderProjects() {
   const list = el("projectsList");
-  const select = el("projectSelect");
+  const select = el("branchSelect");
   list.innerHTML = "";
   select.innerHTML = "";
   if (!state.projects.length) {
@@ -67,17 +69,19 @@ function renderProjects() {
     card.addEventListener("click", () => {
       state.selectedProject = project.id;
       state.selectedRequirements.clear();
-      select.value = project.id;
+      state.selectedBranch = firstBranch(project).id;
       pickLatestRequirement();
+      renderBranches();
       renderBoard();
       showView("boardView");
     });
     list.append(card);
   }
-  if (!state.selectedProject) state.selectedProject = select.value || state.projects[0].id;
-  select.value = state.selectedProject;
+  if (!state.selectedProject) state.selectedProject = state.projects[0].id;
+  renderBranches();
   pickLatestRequirement();
   renderSideProjects();
+  renderTodoRatio();
 }
 
 function renderSideProjects() {
@@ -96,9 +100,10 @@ function renderSideProjects() {
     button.addEventListener("click", () => {
       state.selectedProject = project.id;
       state.selectedRequirements.clear();
-      el("projectSelect").value = project.id;
+      state.selectedBranch = firstBranch(project).id;
       state.selectedRequirement = "";
       pickLatestRequirement();
+      renderBranches();
       renderBoard();
       showView("boardView");
     });
@@ -108,8 +113,26 @@ function renderSideProjects() {
 
 function pickLatestRequirement() {
   const project = currentProject();
-  const latest = project ? (project.requirements || []).at(-1) : null;
+  const latest = project ? currentBranchRequirements(project).at(-1) : null;
   if (!state.selectedRequirement && latest) state.selectedRequirement = latest.id;
+}
+
+function renderBranches() {
+  const select = el("branchSelect");
+  const project = currentProject();
+  select.innerHTML = "";
+  if (!project) return;
+  const branches = normalizedBranches(project);
+  if (!state.selectedBranch || !branches.some((branch) => branch.id === state.selectedBranch)) {
+    state.selectedBranch = branches[0].id;
+  }
+  for (const branch of branches) {
+    const option = document.createElement("option");
+    option.value = branch.id;
+    option.textContent = branch.name;
+    select.append(option);
+  }
+  select.value = state.selectedBranch;
 }
 
 async function saveConfig() {
@@ -246,6 +269,21 @@ async function createProject() {
     }),
   });
   state.selectedProject = project.id;
+  state.selectedBranch = firstBranch(project).id;
+  await loadState();
+  showView("boardView");
+}
+
+async function createBranch() {
+  const project = currentProject();
+  if (!project) throw new Error("Create or select a project first");
+  const name = prompt("Branch name");
+  if (!name || !name.trim()) return;
+  const branch = await api(`/api/projects/${project.id}/branches`, {
+    method: "POST",
+    body: JSON.stringify({ name: name.trim() }),
+  });
+  state.selectedBranch = branch.id;
   await loadState();
   showView("boardView");
 }
@@ -258,7 +296,9 @@ async function addRequirement() {
     body: JSON.stringify({
       title: el("reqTitle").value.trim(),
       description: el("reqDesc").value.trim(),
+      priority: selectedPriority(),
       status: state.newRequirementStatus || "draft",
+      branch_id: state.selectedBranch || firstBranch(project).id,
     }),
   });
   state.selectedRequirement = req.id;
@@ -318,19 +358,32 @@ async function pushGitHub() {
 }
 
 function currentProject() {
-  const selected = el("projectSelect").value || state.selectedProject;
+  const selected = state.selectedProject;
   return state.projects.find((project) => project.id === selected) || state.projects[0];
 }
 
 function currentRequirement(project) {
-  const requirements = project.requirements || [];
+  const requirements = currentBranchRequirements(project);
   return requirements.find((req) => req.id === state.selectedRequirement) || requirements.at(-1);
+}
+
+function normalizedBranches(project) {
+  return project.branches && project.branches.length ? project.branches : [{ id: "main", name: "Main" }];
+}
+
+function firstBranch(project) {
+  return normalizedBranches(project)[0];
+}
+
+function currentBranchRequirements(project) {
+  const branchID = state.selectedBranch || firstBranch(project).id;
+  return (project.requirements || []).filter((req) => (req.branch_id || firstBranch(project).id) === branchID);
 }
 
 function renderBoard() {
   const list = el("boardList");
   const project = currentProject();
-  const requirements = project ? project.requirements || [] : [];
+  const requirements = project ? currentBranchRequirements(project) : [];
   list.innerHTML = "";
   if (!requirements.length) {
     list.className = "kanbanBoard empty";
@@ -365,10 +418,16 @@ function renderBoard() {
     });
   });
   document.querySelectorAll("[data-select-req]").forEach((node) => {
-    node.addEventListener("change", () => toggleRequirementSelection(node.dataset.selectReq, node.checked));
+    node.addEventListener("change", () => {
+      toggleRequirementSelection(node.dataset.selectReq, node.checked);
+      node.closest(".issueCard")?.classList.toggle("selected", node.checked);
+    });
   });
   document.querySelectorAll("[data-add-status]").forEach((node) => {
     node.addEventListener("click", () => openRequirementModal(node.dataset.addStatus));
+  });
+  document.querySelectorAll("[data-move-branch]").forEach((node) => {
+    node.addEventListener("change", () => moveRequirementToBranch(node.dataset.moveBranch, node.value));
   });
   renderSelectionToolbar();
 }
@@ -381,9 +440,11 @@ function renderIssueCard(req, color) {
   const status = req.status || "draft";
   const progress = status === "closed" ? "100%" : status === "in_progress" ? "55%" : status === "sent" ? "15%" : "0%";
   card.innerHTML = `
+    <div class="issueSelect"><input type="checkbox" data-select-req="${escapeHtml(req.id)}" ${state.selectedRequirements.has(req.id) ? "checked" : ""} /></div>
+    <div class="issueBody">
     <div class="issueTitle">${escapeHtml(req.title)}</div>
     <div class="badges">
-      <span class="badge ${color}">${status === "closed" ? "Done" : status === "in_progress" ? "Medium" : "Low"}</span>
+      <span class="badge ${priorityClass(req.priority)}">${priorityLabel(req.priority)}</span>
       <span class="badge agent">OpenClaw</span>
     </div>
     <div class="issueMeta">
@@ -395,11 +456,31 @@ function renderIssueCard(req, color) {
       <span class="avatar">A</span>
       <span class="muted">${escapeHtml(req.id.slice(0, 8))}</span>
     </div>
-    <div class="itemRow">
-      <input type="checkbox" data-select-req="${escapeHtml(req.id)}" ${state.selectedRequirements.has(req.id) ? "checked" : ""} />
-      <button class="secondary" data-open-req="${escapeHtml(req.id)}">Open</button>
+    ${status === "draft" ? renderBranchMove(req) : ""}
     </div>`;
+  card.addEventListener("click", (event) => {
+    if (event.target.closest("input,select")) return;
+    const selected = !state.selectedRequirements.has(req.id);
+    toggleRequirementSelection(req.id, selected);
+    card.classList.toggle("selected", selected);
+    const checkbox = card.querySelector("[data-select-req]");
+    if (checkbox) checkbox.checked = selected;
+  });
+  card.addEventListener("dblclick", () => {
+    state.selectedRequirement = req.id;
+    showView("taskView");
+  });
   return card;
+}
+
+function renderBranchMove(req) {
+  const project = currentProject();
+  const options = normalizedBranches(project)
+    .filter((branch) => branch.id !== (req.branch_id || firstBranch(project).id))
+    .map((branch) => `<option value="${escapeHtml(branch.id)}">${escapeHtml(branch.name)}</option>`)
+    .join("");
+  if (!options) return "";
+  return `<select data-move-branch="${escapeHtml(req.id)}"><option value="">Move to branch...</option>${options}</select>`;
 }
 
 function toggleRequirementSelection(reqID, selected) {
@@ -435,20 +516,65 @@ async function moveRequirement(reqID, status) {
   await loadState();
 }
 
+async function moveRequirementToBranch(reqID, branchID) {
+  if (!reqID || !branchID) return;
+  const project = currentProject();
+  if (!project) return;
+  await api(`/api/projects/${project.id}/board`, {
+    method: "POST",
+    body: JSON.stringify({ requirement_ids: [reqID], branch_id: branchID, status: "draft" }),
+  });
+  state.selectedRequirements.delete(reqID);
+  await loadState();
+}
+
 function renderSelectionToolbar() {
   const count = state.selectedRequirements.size;
   el("selectionToolbar").classList.toggle("hidden", count === 0);
   el("selectionCount").textContent = `${count} selected`;
 }
 
+function renderTodoRatio() {
+  const all = state.projects.flatMap((project) => project.requirements || []);
+  const denominator = all.filter((req) => ["draft", "sent", "in_progress", ""].includes(req.status || "")).length;
+  const todo = all.filter((req) => (req.status || "") === "sent").length;
+  el("todoRatio").textContent = `${denominator ? Math.round((todo / denominator) * 100) : 0}%`;
+}
+
 function openRequirementModal(status = "draft") {
   state.newRequirementStatus = status;
+  const low = document.querySelector("[name=reqPriority][value=low]");
+  if (low) low.checked = true;
   el("requirementModal").classList.remove("hidden");
   el("reqTitle").focus();
 }
 
 function closeRequirementModal() {
   el("requirementModal").classList.add("hidden");
+}
+
+function selectedPriority() {
+  return document.querySelector("[name=reqPriority]:checked")?.value || "low";
+}
+
+function priorityLabel(priority) {
+  return {
+    no_priority: "No priority",
+    urgent: "Urgent",
+    high: "High",
+    medium: "Medium",
+    low: "Low",
+  }[priority || "low"] || "Low";
+}
+
+function priorityClass(priority) {
+  return {
+    no_priority: "none",
+    urgent: "urgent",
+    high: "high",
+    medium: "medium",
+    low: "low",
+  }[priority || "low"] || "low";
 }
 
 function escapeHtml(value) {
@@ -472,8 +598,8 @@ function bind(id, fn) {
 document.querySelectorAll("[data-view]").forEach((node) => {
   node.addEventListener("click", () => showView(node.dataset.view));
 });
-el("projectSelect").addEventListener("change", () => {
-  state.selectedProject = el("projectSelect").value;
+el("branchSelect").addEventListener("change", () => {
+  state.selectedBranch = el("branchSelect").value;
   state.selectedRequirement = "";
   state.selectedRequirements.clear();
   pickLatestRequirement();
@@ -487,6 +613,7 @@ bind("refreshBtn", async () => {
 });
 bind("saveConfigBtn", saveConfig);
 bind("createProjectBtn", createProject);
+bind("createBranchBtn", createBranch);
 bind("addReqBtn", addRequirement);
 bind("openRequirementModalBtn", async () => openRequirementModal("draft"));
 bind("closeRequirementModalBtn", async () => closeRequirementModal());

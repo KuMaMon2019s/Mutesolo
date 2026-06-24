@@ -201,6 +201,8 @@ func (s Server) handleProjectActions(w http.ResponseWriter, r *http.Request) {
 	projectID := parts[0]
 	action := parts[1]
 	switch action {
+	case "branches":
+		s.handleBranches(w, r, projectID)
 	case "requirements":
 		s.handleRequirements(w, r, projectID)
 	case "prompt":
@@ -212,6 +214,35 @@ func (s Server) handleProjectActions(w http.ResponseWriter, r *http.Request) {
 	default:
 		writeError(w, http.StatusNotFound, "unknown project action")
 	}
+}
+
+func (s Server) handleBranches(w http.ResponseWriter, r *http.Request, projectID string) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var input struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	state, err := s.store.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	branch, ok := AddBranch(&state, projectID, input.Name)
+	if !ok {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	if err := s.store.Save(state); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, branch)
 }
 
 func (s Server) handleRequirements(w http.ResponseWriter, r *http.Request, projectID string) {
