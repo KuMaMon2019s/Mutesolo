@@ -20,7 +20,12 @@ func TestAssetObjectKeyUsesDateAndExtension(t *testing.T) {
 func TestBuildRequirementEditorPromptDoesNotLeakLocalAssetURL(t *testing.T) {
 	prompt := BuildRequirementEditorPrompt(
 		"上传截图",
-		nil,
+		[]map[string]any{{
+			"type": "image",
+			"props": map[string]any{
+				"url": "http://127.0.0.1:9000/Mutesolo-assets/2026/06/25/screen.png",
+			},
+		}},
 		nil,
 		[]RequirementEditorAttachment{{
 			Name:       "screen.png",

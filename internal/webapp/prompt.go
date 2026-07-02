@@ -103,10 +103,11 @@ func BuildRequirementEditorPrompt(plainText string, blocks []map[string]any, doc
 		}
 	}
 	builder.WriteString("\nAttachments:\n")
-	if len(attachments) == 0 {
-		builder.WriteString("- none\n")
+	referenced := referencedAttachments(plainText, blocks, attachments)
+	if len(referenced) == 0 {
+		builder.WriteString("- none (no uploaded attachments are referenced in the requirement body)\n")
 	} else {
-		for _, attachment := range attachments {
+		for _, attachment := range referenced {
 			builder.WriteString(fmt.Sprintf("- %s (%s, %s, %d bytes)", attachment.Name, attachment.Kind, attachment.MIMEType, attachment.Size))
 			if isNonLocalURL(attachment.URL) {
 				builder.WriteString(fmt.Sprintf("\n  URL: %s", attachment.URL))
@@ -132,6 +133,53 @@ func isNonLocalURL(value string) bool {
 	}
 	host := strings.ToLower(parsed.Hostname())
 	return host != "" && host != "localhost" && host != "127.0.0.1" && host != "::1"
+}
+
+func referencedAttachments(plainText string, blocks []map[string]any, attachments []RequirementEditorAttachment) []RequirementEditorAttachment {
+	haystack := strings.ToLower(plainText) + "\n" + strings.ToLower(stringifyBlocksForSearch(blocks))
+	var matched []RequirementEditorAttachment
+	for _, attachment := range attachments {
+		url := strings.TrimSpace(attachment.URL)
+		key := strings.TrimSpace(attachment.StorageKey)
+		if url == "" && key == "" {
+			continue
+		}
+		referenced := false
+		if url != "" && strings.Contains(haystack, strings.ToLower(url)) {
+			referenced = true
+		}
+		if !referenced && key != "" && strings.Contains(haystack, strings.ToLower(key)) {
+			referenced = true
+		}
+		if referenced {
+			matched = append(matched, attachment)
+		}
+	}
+	return matched
+}
+
+func stringifyBlocksForSearch(blocks []map[string]any) string {
+	var builder strings.Builder
+	var walk func(v interface{})
+	walk = func(v interface{}) {
+		switch value := v.(type) {
+		case string:
+			builder.WriteString(value)
+			builder.WriteString(" ")
+		case map[string]interface{}:
+			for _, inner := range value {
+				walk(inner)
+			}
+		case []interface{}:
+			for _, inner := range value {
+				walk(inner)
+			}
+		}
+	}
+	for _, block := range blocks {
+		walk(block)
+	}
+	return builder.String()
 }
 
 func BuildLLMPromptInput(project Project, req Requirement, editor RequirementEditorPromptRequest) string {

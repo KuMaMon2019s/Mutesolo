@@ -262,9 +262,6 @@ export function RequirementEditor() {
       <section className="editorGrid">
         <section className="editorPanel">
           <div className="panelHead">
-            <div>
-              <h2>需求正文</h2>
-            </div>
             <span>{blocks.length || editor.document.length} blocks</span>
           </div>
           <BlockNoteView

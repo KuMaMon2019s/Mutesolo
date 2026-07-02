@@ -86,7 +86,7 @@ func TestBuildDiscordMessageTargetsTailscaleAgentName(t *testing.T) {
 
 func TestBuildRequirementEditorPromptKeepsObjectStorageAssets(t *testing.T) {
 	prompt := BuildRequirementEditorPrompt(
-		"实现登录页",
+		"实现登录页，流程参考 2026/06/25/flow.png",
 		[]map[string]any{{"type": "paragraph"}},
 		[]RequirementEditorTencentDoc{{
 			Type:            "tencent_doc",
@@ -118,6 +118,40 @@ func TestBuildRequirementEditorPromptKeepsObjectStorageAssets(t *testing.T) {
 	}
 	if strings.Contains(prompt, "http://127.0.0.1:9000") {
 		t.Fatalf("prompt leaked local object URL: %q", prompt)
+	}
+}
+
+func TestBuildRequirementEditorPromptFiltersUnreferencedAttachments(t *testing.T) {
+	prompt := BuildRequirementEditorPrompt(
+		"实现登录页，流程参考 2026/06/25/flow.png",
+		[]map[string]any{{"type": "paragraph"}},
+		nil,
+		[]RequirementEditorAttachment{
+			{
+				Name:       "flow.png",
+				MIMEType:   "image/png",
+				Size:       2048,
+				Kind:       "image",
+				URL:        "https://storage.example/flow.png",
+				StorageKey: "2026/06/25/flow.png",
+				Source:     "minio",
+			},
+			{
+				Name:       "unrelated.png",
+				MIMEType:   "image/png",
+				Size:       4096,
+				Kind:       "image",
+				URL:        "https://storage.example/unrelated.png",
+				StorageKey: "2026/06/25/unrelated.png",
+				Source:     "minio",
+			},
+		},
+	)
+	if !strings.Contains(prompt, "flow.png") {
+		t.Fatalf("prompt should include referenced attachment: %q", prompt)
+	}
+	if strings.Contains(prompt, "unrelated.png") {
+		t.Fatalf("prompt should not include unreferenced attachment: %q", prompt)
 	}
 }
 
