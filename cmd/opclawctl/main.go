@@ -202,7 +202,7 @@ func newTable() *tabwriter.Writer {
 }
 
 func printUsage() {
-	fmt.Println(`OpenClaw Coordination Layer
+	fmt.Println(`AI Agent Coordination Layer
 
 Usage:
   opclawctl agents list
@@ -215,5 +215,5 @@ Usage:
   opclawctl pipeline run -prompt "write a safe helper"
 
 State:
-  OPENCLAW_STATE can override the default .openclaw/state.json path.`)
+  AI_AGENT_STATE can override the default .ai-agent/state.json path.`)
 }

@@ -339,7 +339,7 @@ label,
   margin-bottom: 14px;
 }
 
-.openClawStrip {
+.aiAgentStrip {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -354,14 +354,14 @@ label,
   text-transform: uppercase;
 }
 
-.openClawAvatars {
+.aiAgentAvatars {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.openClawAvatar {
+.aiAgentAvatar {
   position: relative;
   display: grid;
   grid-template-columns: 34px auto;
@@ -375,7 +375,7 @@ label,
   padding: 2px 8px 2px 2px;
 }
 
-.openClawAvatar:hover {
+.aiAgentAvatar:hover {
   border-color: #303a49;
   background: #141a22;
 }
@@ -410,11 +410,11 @@ label,
   background: #6c7480;
 }
 
-.openClawAvatar.online .presenceDot {
+.aiAgentAvatar.online .presenceDot {
   background: var(--green);
 }
 
-.openClawAvatar.offline .presenceDot {
+.aiAgentAvatar.offline .presenceDot {
   background: #6c7480;
 }
 

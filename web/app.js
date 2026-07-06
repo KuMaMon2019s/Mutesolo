@@ -32,12 +32,14 @@ async function loadState() {
   const data = await api("/api/state");
   state.projects = data.projects || [];
   const cfg = data.config || {};
-  el("openclawUrl").value = cfg.openclaw_base_url || "";
-  el("openclawToken").value = cfg.openclaw_token || "";
+  el("aiAgentUrl").value = cfg.ai_agent_base_url || "";
+  el("aiAgentToken").value = cfg.ai_agent_token || "";
   el("githubRepo").value = cfg.github_repo || "";
   el("discordUrl").value = cfg.discord_url || "";
   el("discordWidgetUrl").value = cfg.discord_widget_url || "";
   el("discordBotId").value = cfg.discord_bot_id || "";
+  el("discordGuildId").value = cfg.discord_guild_id || "";
+  el("discordBotUsername").value = cfg.discord_bot_username || "";
   el("clawhubUrl").value = cfg.clawhub_base_url || "";
   el("llmApiKey").value = cfg.llm_api_key || "";
   setLLMEditMode(!(cfg.llm_locked && cfg.llm_api_key), { quiet: true });
@@ -47,7 +49,7 @@ async function loadState() {
   renderTodoRatio();
   loadTailscaleDevices().catch((error) => {
     state.tailscaleError = error.message;
-    renderOpenClawStrip();
+    renderAIAgentStrip();
   });
 }
 
@@ -55,6 +57,75 @@ function showView(viewId) {
   document.querySelectorAll(".view").forEach((node) => node.classList.remove("activeView"));
   document.querySelectorAll("[data-view]").forEach((node) => node.classList.toggle("active", node.dataset.view === viewId));
   el(viewId).classList.add("activeView");
+  syncStateToHash();
+}
+
+// Hash-based routing for page refresh persistence
+function syncStateToHash() {
+  const params = new URLSearchParams();
+  if (state.selectedProject) params.set("project", state.selectedProject);
+  if (state.selectedBranch) params.set("branch", state.selectedBranch);
+  if (state.selectedRequirement) params.set("req", state.selectedRequirement);
+  if (state.boardTab && state.boardTab !== "kanban") params.set("tab", state.boardTab);
+  
+  // Determine current view
+  const activeView = document.querySelector(".view.activeView");
+  if (activeView && activeView.id !== "boardView") {
+    params.set("view", activeView.id);
+  }
+  
+  const hash = params.toString();
+  const newHash = hash ? `#${hash}` : "";
+  if (window.location.hash !== newHash) {
+    history.replaceState(null, "", newHash || window.location.pathname);
+  }
+}
+
+function restoreStateFromHash() {
+  const hash = window.location.hash.slice(1);
+  if (!hash) return false;
+
+  const params = new URLSearchParams(hash);
+  const projectId = params.get("project");
+  const branchId = params.get("branch");
+  const requirementId = params.get("req");
+  const tab = params.get("tab") || "kanban";
+  const viewId = params.get("view") || "boardView";
+
+  if (projectId && state.projects.some((p) => p.id === projectId)) {
+    state.selectedProject = projectId;
+
+    const project = state.projects.find((p) => p.id === projectId);
+    if (branchId && project.branches.some((b) => b.id === branchId)) {
+      state.selectedBranch = branchId;
+    } else {
+      state.selectedBranch = firstBranch(project).id;
+    }
+
+    if (requirementId) {
+      state.selectedRequirement = requirementId;
+    }
+
+    state.boardTab = tab;
+
+    renderBranches();
+    renderSideProjects();
+    renderBoard();
+    if (tab === "branch") {
+      renderBranchList();
+    }
+    renderBoardMode();
+    renderSelectionToolbar();
+    if (viewId === "taskView") {
+      renderTaskDetail();
+    }
+  }
+
+  if (viewId && el(viewId)) {
+    showView(viewId);
+  }
+
+  return !!projectId;
 }
 
 function showBoardView() {
@@ -191,12 +262,14 @@ async function saveConfig() {
   await api("/api/config", {
     method: "PUT",
     body: JSON.stringify({
-      openclaw_base_url: el("openclawUrl").value.trim(),
-      openclaw_token: el("openclawToken").value.trim(),
+      ai_agent_base_url: el("aiAgentUrl").value.trim(),
+      ai_agent_token: el("aiAgentToken").value.trim(),
       github_repo: el("githubRepo").value.trim(),
       discord_url: el("discordUrl").value.trim(),
       discord_widget_url: el("discordWidgetUrl").value.trim(),
       discord_bot_id: el("discordBotId").value.trim(),
+      discord_guild_id: el("discordGuildId").value.trim(),
+      discord_bot_username: el("discordBotUsername").value.trim(),
       clawhub_base_url: el("clawhubUrl").value.trim(),
       llm_api_key: el("llmApiKey").value.trim(),
       llm_locked: state.llmLocked,
@@ -239,23 +312,23 @@ function showDiscordPreview() {
 }
 
 async function refreshConnections() {
-  await Promise.allSettled([loadOpenClawStatus(), loadTailscaleDevices(), loadSkills(), loadRuntimes()]);
+  await Promise.allSettled([loadAIAgentStatus(), loadTailscaleDevices(), loadSkills(), loadRuntimes()]);
 }
 
-async function loadOpenClawStatus() {
-  const dot = el("openclawDot");
-  const text = el("openclawText");
-  const meta = el("openclawMeta");
+async function loadAIAgentStatus() {
+  const dot = el("aiAgentDot");
+  const text = el("aiAgentText");
+  const meta = el("aiAgentMeta");
   try {
-    const status = await api("/api/openclaw/status");
+    const status = await api("/api/ai-agent/status");
     dot.className = `dot ${status.online ? "ok" : "bad"}`;
-    text.textContent = status.online ? "OpenClaw online" : "OpenClaw offline";
+    text.textContent = status.online ? "AI Agent online" : "AI Agent offline";
     meta.textContent = status.online
-      ? `${status.name || "agent"} ${status.version || ""} ${status.agent_id || ""}`.trim()
+      ? `${status.name || "agent"} · ${status.presence_count || 0} online`
       : status.error || "not reachable";
   } catch (error) {
     dot.className = "dot bad";
-    text.textContent = "OpenClaw offline";
+    text.textContent = "AI Agent offline";
     meta.textContent = error.message;
   }
 }
@@ -264,40 +337,40 @@ async function loadTailscaleDevices() {
   const status = await api("/api/tailscale/devices");
   state.tailscaleDevices = status.devices || [];
   state.tailscaleError = status.error || "";
-  renderOpenClawStrip();
+  renderAIAgentStrip();
   renderAgentSelects();
   renderBoard();
 }
 
-function renderOpenClawStrip() {
-  const strip = el("openClawStrip");
+function renderAIAgentStrip() {
+  const strip = el("aiAgentStrip");
   if (!strip) return;
   strip.innerHTML = "";
   if (!state.tailscaleDevices.length) {
-    strip.className = "openClawStrip empty";
+    strip.className = "aiAgentStrip empty";
     strip.textContent = state.tailscaleError ? `Tailscale unavailable: ${state.tailscaleError}` : "No Tailscale devices";
     return;
   }
-  strip.className = "openClawStrip";
+  strip.className = "aiAgentStrip";
   const label = document.createElement("span");
   label.className = "stripLabel";
-  label.textContent = "OpenClaw";
+  label.textContent = "AI Agent";
   strip.append(label);
   const avatars = document.createElement("div");
-  avatars.className = "openClawAvatars";
+  avatars.className = "aiAgentAvatars";
   for (const device of state.tailscaleDevices) {
     const name = tailscaleDeviceName(device);
     const node = document.createElement("button");
-    node.className = `openClawAvatar ${device.online ? "online" : "offline"}`;
+    node.className = `aiAgentAvatar ${device.online ? "online" : "offline"}`;
     node.style.setProperty("--avatar-bg", avatarColor(name));
     node.title = `${name} · ${device.online ? "online" : "offline"}${device.ip ? " · " + device.ip : ""}`;
     node.innerHTML = `
       <span class="avatarFace">${escapeHtml(avatarText(name))}</span>
       <span class="presenceDot"></span>
       <span class="avatarName">${escapeHtml(name)}</span>`;
-    if (device.openclaw_url) {
+    if (device.ai_agent_url) {
       node.addEventListener("click", () => {
-        el("openclawUrl").value = device.openclaw_url;
+        el("aiAgentUrl").value = device.ai_agent_url;
         saveConfig().catch((error) => alert(error.message));
       });
     }
@@ -308,7 +381,7 @@ function renderOpenClawStrip() {
 
 function tailscaleDeviceName(device) {
   const dnsLabel = String(device.dns_name || "").split(".")[0];
-  return dnsLabel || shortDeviceName(device.name) || "OpenClaw";
+  return dnsLabel || shortDeviceName(device.name) || "AI Agent";
 }
 
 function shortDeviceName(name) {
@@ -318,14 +391,14 @@ function shortDeviceName(name) {
 }
 
 function avatarText(name) {
-  const compact = String(name || "OC").replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, "");
-  return compact.slice(0, 2).toUpperCase() || "OC";
+  const compact = String(name || "AI").replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, "");
+  return compact.slice(0, 2).toUpperCase() || "AI";
 }
 
 function avatarColor(value) {
   const palette = ["#5b8def", "#4dc89a", "#f1bd6c", "#e989d8", "#ff8b66", "#7c8cff", "#44b4a6"];
   let hash = 0;
-  for (const char of String(value || "openclaw")) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  for (const char of String(value || "ai-agent")) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
   return palette[hash % palette.length];
 }
 
@@ -365,7 +438,7 @@ async function installSelectedSkill() {
     method: "POST",
     body: JSON.stringify({ agent_id: el("skillAgentId").value.trim() }),
   });
-  alert(result.result.sent ? "Install instruction sent to OpenClaw" : result.result.message || "Instruction not sent");
+  alert(result.result.sent ? "Install instruction sent to AI Agent" : result.result.message || "Instruction not sent");
 }
 
 async function loadRuntimes() {
@@ -557,6 +630,16 @@ function requestRequirementEditorContext() {
       window.location.origin
     );
   });
+}
+
+function clearPromptDisplay() {
+  const segments = el("segments");
+  if (segments) {
+    segments.className = "segments empty";
+    segments.textContent = "No prompt generated";
+  }
+  const artifactPath = el("artifactPath");
+  if (artifactPath) artifactPath.textContent = "";
 }
 
 function renderPromptResult(result) {
@@ -818,12 +901,14 @@ function renderBoardMode() {
 function showKanbanTab() {
   state.boardTab = "kanban";
   renderBoardMode();
+  syncStateToHash();
 }
 
 function showBranchTab() {
   state.boardTab = "branch";
   renderBranchList();
   renderBoardMode();
+  syncStateToHash();
 }
 
 function selectBranch(projectID, branchID) {
@@ -913,6 +998,8 @@ function renderTaskDetail() {
     const title = el("taskTitle");
     if (title) title.value = "";
     renderAgentSelects();
+    state.discordText = "";
+    clearPromptDisplay();
     return;
   }
   el("taskTitle").value = requirement.title || "";
@@ -931,6 +1018,16 @@ function renderTaskDetail() {
   if (frame) {
     const nextSrc = `/apps/requirement-editor/?${params.toString()}`;
     if (frame.getAttribute("src") !== nextSrc) frame.setAttribute("src", nextSrc);
+  }
+  // Restore saved prompt
+  if (requirement.prompt) {
+    state.discordText = requirement.prompt;
+    renderPromptResult({ prompt: requirement.prompt });
+    const artifactPath = el("artifactPath");
+    if (artifactPath) artifactPath.textContent = "(restored from saved)";
+  } else {
+    state.discordText = "";
+    clearPromptDisplay();
   }
 }
 
@@ -1080,40 +1177,40 @@ function priorityClass(priority) {
 
 function agentLabel(agentID) {
   agentID = normalizeAgentID(agentID);
-  const device = state.tailscaleDevices.find((item) => item.id === agentID || item.openclaw_url === agentID || tailscaleDeviceName(item) === agentID);
+  const device = state.tailscaleDevices.find((item) => item.id === agentID || item.ai_agent_url === agentID || tailscaleDeviceName(item) === agentID);
   if (device) return tailscaleDeviceName(device);
   return {
-    "openclaw-a": "OpenClaw A",
-    "openclaw-b": "OpenClaw B",
-    "openclaw-c": "OpenClaw C",
+    "ai-agent-a": "AI Agent A",
+    "ai-agent-b": "AI Agent B",
+    "ai-agent-c": "AI Agent C",
   }[agentID || ""] || agentID || "Unassigned";
 }
 
 function agentOptions(selectedAgent) {
   selectedAgent = normalizeAgentID(selectedAgent);
-  const devices = openClawAgentOptions(selectedAgent);
+  const devices = aiAgentOptions(selectedAgent);
   return devices
     .map(([value, label]) => `<option value="${value}" ${value === selectedAgent ? "selected" : ""}>${label}</option>`)
     .join("");
 }
 
-function openClawAgentOptions(selectedAgent = "") {
+function aiAgentOptions(selectedAgent = "") {
   const online = state.tailscaleDevices.filter((device) => device.online);
   const options = online.map((device) => [tailscaleDeviceName(device), tailscaleDeviceName(device)]);
   if (selectedAgent && !options.some(([value]) => value === selectedAgent)) {
     options.push([selectedAgent, agentLabel(selectedAgent)]);
   }
-  if (!options.length) options.push(["openclaw-a", "OpenClaw A"]);
+  if (!options.length) options.push(["ai-agent-a", "AI Agent A"]);
   return options;
 }
 
 function defaultAgentID() {
   const device = state.tailscaleDevices.find((item) => item.online);
-  return device ? tailscaleDeviceName(device) : "openclaw-a";
+  return device ? tailscaleDeviceName(device) : "ai-agent-a";
 }
 
 function normalizeAgentID(agentID = "") {
-  if (agentID === "openclaw-a" && state.tailscaleDevices.some((device) => device.online)) {
+  if (agentID === "ai-agent-a" && state.tailscaleDevices.some((device) => device.online)) {
     return defaultAgentID();
   }
   return agentID;
@@ -1221,4 +1318,11 @@ document.addEventListener("click", (event) => {
   if (!event.target.closest("#branchDropdown")) closeBranchDropdown();
 });
 
-loadState().then(refreshConnections).catch((error) => alert(error.message));
+loadState().then(() => {
+  restoreStateFromHash();
+  return refreshConnections();
+}).catch((error) => alert(error.message));
+
+window.addEventListener("hashchange", () => {
+  restoreStateFromHash();
+});

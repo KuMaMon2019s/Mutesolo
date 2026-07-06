@@ -29,12 +29,12 @@ func NewServer(store Store, staticDir string) Server {
 
 func (s Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(envOrDefault("MUTESOLO_ASSET_FALLBACK_DIR", ".openclaw/assets")))))
+	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(envOrDefault("MUTESOLO_ASSET_FALLBACK_DIR", ".ai-agent/assets")))))
 	mux.Handle("/apps/requirement-editor/", http.StripPrefix("/apps/requirement-editor/", http.FileServer(http.Dir(filepath.Join("webapps", "requirement-editor", "dist")))))
 	mux.Handle("/", http.FileServer(http.Dir(s.staticDir)))
 	mux.HandleFunc("/api/state", s.handleState)
 	mux.HandleFunc("/api/config", s.handleConfig)
-	mux.HandleFunc("/api/openclaw/status", s.handleOpenClawStatus)
+	mux.HandleFunc("/api/ai-agent/status", s.handleAIAgentStatus)
 	mux.HandleFunc("/api/tailscale/devices", s.handleTailscaleDevices)
 	mux.HandleFunc("/api/clawhub/skills", s.handleClawHubSkills)
 	mux.HandleFunc("/api/clawhub/skills/", s.handleClawHubSkillActions)
@@ -131,7 +131,7 @@ func (s Server) handleClawHubSkillInstall(w http.ResponseWriter, r *http.Request
 		return
 	}
 	input.SkillID = skillID
-	result, err := s.connector.InstallSkillOnOpenClaw(r.Context(), state.Config.OpenClawBaseURL, state.Config.OpenClawToken, state.Config.ClawHubBaseURL, input)
+	result, err := s.connector.InstallSkillOnAIAgent(r.Context(), state.Config.AIAgentBaseURL, state.Config.AIAgentToken, state.Config.ClawHubBaseURL, input)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
@@ -186,13 +186,13 @@ func (s Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s Server) handleOpenClawStatus(w http.ResponseWriter, r *http.Request) {
+func (s Server) handleAIAgentStatus(w http.ResponseWriter, r *http.Request) {
 	state, err := s.store.Load()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, s.connector.CheckOpenClaw(r.Context(), state.Config.OpenClawBaseURL))
+	writeJSON(w, s.connector.CheckAIAgent(r.Context(), state.Config.DiscordGuildID, state.Config.DiscordBotUsername))
 }
 
 func (s Server) handleTailscaleDevices(w http.ResponseWriter, r *http.Request) {
@@ -415,7 +415,28 @@ func (s Server) handlePrompt(w http.ResponseWriter, r *http.Request, projectID s
 		return
 	}
 	result.DiscordText = BuildDiscordMessageForBot(project, req, prompt, state.Config.DiscordBotID)
+	if err := s.savePromptToRequirement(&state, projectID, input.RequirementID, prompt); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 	writeJSON(w, result)
+}
+
+func (s Server) savePromptToRequirement(state *State, projectID string, reqID string, prompt string) error {
+	for pi := range state.Projects {
+		if state.Projects[pi].ID != projectID {
+			continue
+		}
+		for ri := range state.Projects[pi].Requirements {
+			if state.Projects[pi].Requirements[ri].ID != reqID {
+				continue
+			}
+			state.Projects[pi].Requirements[ri].Prompt = prompt
+			state.Projects[pi].Requirements[ri].UpdatedAt = time.Now().UTC()
+			return s.store.Save(*state)
+		}
+	}
+	return nil
 }
 
 func (s Server) handleSendPrompt(w http.ResponseWriter, r *http.Request, projectID string) {
@@ -446,7 +467,7 @@ func (s Server) handleSendPrompt(w http.ResponseWriter, r *http.Request, project
 		return
 	}
 	prompt := BuildPrompt(project, req)
-	result, err := s.connector.SendOpenClawPrompt(r.Context(), state.Config.OpenClawBaseURL, state.Config.OpenClawToken, prompt)
+	result, err := s.connector.SendAIAgentPrompt(r.Context(), state.Config.AIAgentBaseURL, state.Config.AIAgentToken, prompt)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return

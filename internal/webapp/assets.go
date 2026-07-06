@@ -52,7 +52,7 @@ func AssetStorageFromEnv() AssetStorage {
 		Region:    envOrDefault("MUTESOLO_MINIO_REGION", "us-east-1"),
 		AccessKey: envOrDefault("MUTESOLO_MINIO_ACCESS_KEY", "Mutesolo"),
 		SecretKey: envOrDefault("MUTESOLO_MINIO_SECRET_KEY", "Mutesolo123"),
-		LocalDir:  envOrDefault("MUTESOLO_ASSET_FALLBACK_DIR", ".openclaw/assets"),
+		LocalDir:  envOrDefault("MUTESOLO_ASSET_FALLBACK_DIR", ".ai-agent/assets"),
 	}
 }
 

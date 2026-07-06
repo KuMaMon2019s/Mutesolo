@@ -28,7 +28,7 @@ func DefaultStatePath() string {
 	if path := os.Getenv("MUTESOLO_WEB_STATE"); path != "" {
 		return path
 	}
-	return ".openclaw/web-state.json"
+	return ".ai-agent/web-state.json"
 }
 
 func (s Store) Load() (State, error) {
@@ -46,8 +46,8 @@ func (s Store) Load() (State, error) {
 	}
 	state := State{
 		Config: Config{
-			OpenClawBaseURL: "http://100.x.y.z:18800",
-			ClawHubBaseURL:  "https://clawhub.example.com",
+			AIAgentBaseURL: "http://100.x.y.z:18800",
+			ClawHubBaseURL: "https://clawhub.example.com",
 		},
 		Projects: []Project{},
 	}
@@ -132,7 +132,7 @@ func AddRequirement(state *State, projectID string, input Requirement) (Requirem
 			input.Priority = "low"
 		}
 		if input.AgentID == "" {
-			input.AgentID = "openclaw-a"
+			input.AgentID = "ai-agent-a"
 		}
 		if input.Status == "" {
 			input.Status = "draft"
@@ -255,7 +255,7 @@ func ensureProjectDefaults(project *Project) {
 			project.Requirements[i].Priority = "low"
 		}
 		if project.Requirements[i].AgentID == "" {
-			project.Requirements[i].AgentID = "openclaw-a"
+			project.Requirements[i].AgentID = "ai-agent-a"
 		}
 	}
 }

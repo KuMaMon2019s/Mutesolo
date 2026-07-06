@@ -3,15 +3,17 @@ package webapp
 import "time"
 
 type Config struct {
-	OpenClawBaseURL  string `json:"openclaw_base_url"`
-	OpenClawToken    string `json:"openclaw_token,omitempty"`
-	DiscordURL       string `json:"discord_url,omitempty"`
-	DiscordWidgetURL string `json:"discord_widget_url,omitempty"`
-	DiscordBotID     string `json:"discord_bot_id,omitempty"`
-	GitHubRepo       string `json:"github_repo"`
-	ClawHubBaseURL   string `json:"clawhub_base_url"`
-	LLMAPIKey        string `json:"llm_api_key,omitempty"`
-	LLMLocked        bool   `json:"llm_locked"`
+	AIAgentBaseURL     string `json:"ai_agent_base_url"`
+	AIAgentToken       string `json:"ai_agent_token,omitempty"`
+	DiscordURL         string `json:"discord_url,omitempty"`
+	DiscordWidgetURL   string `json:"discord_widget_url,omitempty"`
+	DiscordBotID       string `json:"discord_bot_id,omitempty"`
+	DiscordGuildID     string `json:"discord_guild_id,omitempty"`
+	DiscordBotUsername string `json:"discord_bot_username,omitempty"`
+	GitHubRepo         string `json:"github_repo"`
+	ClawHubBaseURL     string `json:"clawhub_base_url"`
+	LLMAPIKey          string `json:"llm_api_key,omitempty"`
+	LLMLocked          bool   `json:"llm_locked"`
 }
 
 type Project struct {
@@ -46,14 +48,21 @@ type Requirement struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-type OpenClawStatus struct {
-	Online    bool   `json:"online"`
-	BaseURL   string `json:"base_url"`
-	AgentID   string `json:"agent_id,omitempty"`
-	Name      string `json:"name,omitempty"`
-	Version   string `json:"version,omitempty"`
-	Error     string `json:"error,omitempty"`
-	CheckedAt string `json:"checked_at"`
+type AIAgentStatus struct {
+	Online        bool            `json:"online"`
+	Name          string          `json:"name,omitempty"`
+	AvatarURL     string          `json:"avatar_url,omitempty"`
+	PresenceCount int             `json:"presence_count"`
+	Members       []DiscordMember `json:"members,omitempty"`
+	Error         string          `json:"error,omitempty"`
+	CheckedAt     string          `json:"checked_at"`
+}
+
+type DiscordMember struct {
+	ID        string `json:"id"`
+	Username  string `json:"username"`
+	Status    string `json:"status"`
+	AvatarURL string `json:"avatar_url"`
 }
 
 type TailscaleDevice struct {
@@ -66,7 +75,7 @@ type TailscaleDevice struct {
 	Active      bool   `json:"active"`
 	Self        bool   `json:"self"`
 	LastSeen    string `json:"last_seen,omitempty"`
-	OpenClawURL string `json:"openclaw_url,omitempty"`
+	AIAgentURL  string `json:"ai_agent_url,omitempty"`
 }
 
 type TailscaleDeviceStatus struct {

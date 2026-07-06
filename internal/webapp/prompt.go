@@ -10,7 +10,7 @@ import (
 
 func BuildPrompt(project Project, req Requirement) string {
 	parts := []string{
-		"You are OpenClaw executing one bounded requirement.",
+		"You are an AI agent executing one bounded requirement.",
 		"Stay inside the requested module boundary unless a human explicitly approves broader work.",
 		"Return implementation notes and artifact-ready output only.",
 		"",
@@ -78,7 +78,7 @@ func BuildDiscordMessageForBot(project Project, req Requirement, prompt string, 
 	if botID != "" {
 		mention = fmt.Sprintf("<@%s>\n\n", botID)
 	}
-	return strings.TrimSpace(fmt.Sprintf("%s task\n\n%sProject: %s\nRequirement: %s\nRequirement ID: %s\n\nAfter completing the work, commit to GitHub and reply with:\ncommit: <sha>\n\nPrompt:\n%s", agentDisplayName(req.AgentID), mention, project.Name, req.Title, req.ID, prompt))
+	return strings.TrimSpace(fmt.Sprintf("%s task\n\n%sProject: %s\nRequirement: %s\n\nAfter completing the work, commit to GitHub and reply with:\ncommit: <sha>\n\nPrompt:\n%s", agentDisplayName(req.AgentID), mention, project.Name, req.Title, prompt))
 }
 
 func BuildRequirementEditorPrompt(plainText string, blocks []map[string]any, docs []RequirementEditorTencentDoc, attachments []RequirementEditorAttachment) string {
@@ -87,7 +87,7 @@ func BuildRequirementEditorPrompt(plainText string, blocks []map[string]any, doc
 		plainText = "No plain text was extracted yet. Inspect the provided blocks JSON before generating final output."
 	}
 	var builder strings.Builder
-	builder.WriteString("Generate a concise implementation prompt for OpenClaw from this requirement context.\n\n")
+	builder.WriteString("Generate a concise implementation prompt for the AI agent from this requirement context.\n\n")
 	builder.WriteString("Rules:\n")
 	builder.WriteString("- Use only the structured context prepared by the local backend.\n")
 	builder.WriteString("- Do not request or read localhost paths, local filesystem paths, or browser blob URLs.\n")
@@ -118,7 +118,6 @@ func BuildRequirementEditorPrompt(plainText string, blocks []map[string]any, doc
 			builder.WriteString("\n")
 		}
 	}
-	builder.WriteString(fmt.Sprintf("\nBlock count: %d\n", len(blocks)))
 	return strings.TrimSpace(builder.String())
 }
 
@@ -184,21 +183,19 @@ func stringifyBlocksForSearch(blocks []map[string]any) string {
 
 func BuildLLMPromptInput(project Project, req Requirement, editor RequirementEditorPromptRequest) string {
 	var builder strings.Builder
-	builder.WriteString("You are Mutesolo Coordination Layer. Generate one concise, executable prompt for OpenClaw.\n\n")
+	builder.WriteString("You are Mutesolo Coordination Layer. Generate one concise, executable prompt for the AI agent.\n\n")
 	builder.WriteString("Backend structured rules:\n")
-	builder.WriteString("- Output only the final prompt text that will be sent to OpenClaw.\n")
+	builder.WriteString("- Output only the final prompt text that will be sent to the AI agent.\n")
 	builder.WriteString("- Keep execution boundaries explicit: generate, validate, store artifact, optional human next step.\n")
 	builder.WriteString("- Do not introduce self-modifying runtime behavior, recursive generation, workflow engines, distributed systems, or architecture drift.\n")
-	builder.WriteString("- Use only the provided project and requirement detail. Do not ask OpenClaw or the LLM to read local filesystem paths or browser blob URLs.\n")
+	builder.WriteString("- Use only the provided project and requirement detail. Do not ask the AI agent or the LLM to read local filesystem paths or browser blob URLs.\n")
 	builder.WriteString("- Refer to uploaded attachments by their object-storage URL or storage key when relevant.\n")
-	builder.WriteString("- Require OpenClaw to commit completed work to GitHub and return a commit SHA.\n\n")
+	builder.WriteString("- Require the AI agent to commit completed work to GitHub and return a commit SHA.\n\n")
 	builder.WriteString("Project context:\n")
 	builder.WriteString(fmt.Sprintf("Project: %s\n", fallback(project.Name, "Untitled project")))
 	builder.WriteString(fmt.Sprintf("Description: %s\n", fallback(project.Description, "No description")))
 	builder.WriteString(fmt.Sprintf("Planning map: %s\n", fallback(project.Plan, "No planning map")))
 	builder.WriteString(fmt.Sprintf("Requirement document: %s\n\n", fallback(project.Docs, "No requirement document")))
-	builder.WriteString("Requirement metadata:\n")
-	builder.WriteString(fmt.Sprintf("ID: %s\nTitle: %s\nPriority: %s\nAssigned OpenClaw: %s\n\n", req.ID, fallback(req.Title, "Untitled requirement"), fallback(req.Priority, "low"), fallback(req.AgentID, "unassigned")))
 	builder.WriteString("Requirement detail prepared by local backend:\n")
 	builder.WriteString(BuildRequirementEditorPrompt(editor.PlainText, editor.Blocks, editor.TencentDocs, editor.Attachments))
 	return strings.TrimSpace(builder.String())
@@ -207,12 +204,12 @@ func BuildLLMPromptInput(project Project, req Requirement, editor RequirementEdi
 func agentDisplayName(agentID string) string {
 	agentID = strings.TrimSpace(agentID)
 	switch agentID {
-	case "", "openclaw-a":
-		return "OpenClaw A"
-	case "openclaw-b":
-		return "OpenClaw B"
-	case "openclaw-c":
-		return "OpenClaw C"
+	case "", "ai-agent-a":
+		return "AI Agent A"
+	case "ai-agent-b":
+		return "AI Agent B"
+	case "ai-agent-c":
+		return "AI Agent C"
 	default:
 		return agentID
 	}

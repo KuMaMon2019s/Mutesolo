@@ -154,7 +154,7 @@ func requestOpenCodePrompt(ctx context.Context, client *http.Client, baseURL, ap
 		Messages: []openCodeChatMessage{
 			{
 				Role:    "system",
-				Content: "You convert structured local requirement context into one bounded OpenClaw implementation prompt. Never request local paths, localhost URLs, or browser blob URLs.",
+				Content: "You convert structured local requirement context into one bounded AI agent implementation prompt. Never request local paths, localhost URLs, or browser blob URLs.",
 			},
 			{
 				Role:    "user",

@@ -64,7 +64,7 @@ func ParseDocument(ctx context.Context, input DocumentParseRequest) (DocumentPar
 	if err != nil {
 		return DocumentParseResponse{}, err
 	}
-	outputDir := envOrDefault("MUTESOLO_MINERU_OUTPUT_DIR", ".openclaw/mineru")
+	outputDir := envOrDefault("MUTESOLO_MINERU_OUTPUT_DIR", ".ai-agent/mineru")
 	method := strings.TrimSpace(input.Method)
 	if method == "" {
 		method = "auto"
@@ -126,7 +126,7 @@ func prepareDocumentInput(ctx context.Context, input DocumentParseRequest) (stri
 	}
 
 	if strings.TrimSpace(input.Source) == "local_static_fallback" && strings.TrimSpace(input.StorageKey) != "" {
-		localDir := envOrDefault("MUTESOLO_ASSET_FALLBACK_DIR", ".openclaw/assets")
+		localDir := envOrDefault("MUTESOLO_ASSET_FALLBACK_DIR", ".ai-agent/assets")
 		localPath := filepath.Join(localDir, filepath.FromSlash(input.StorageKey))
 		if _, err := os.Stat(localPath); err != nil {
 			return "", "", fmt.Errorf("stat local asset: %w", err)
@@ -164,7 +164,7 @@ func downloadDocument(ctx context.Context, rawURL string, name string) (string, 
 	if safeName == "" {
 		safeName = "document.bin"
 	}
-	dir := filepath.Join(envOrDefault("MUTESOLO_MINERU_INPUT_DIR", ".openclaw/mineru-inputs"), time.Now().UTC().Format("20060102"))
+	dir := filepath.Join(envOrDefault("MUTESOLO_MINERU_INPUT_DIR", ".ai-agent/mineru-inputs"), time.Now().UTC().Format("20060102"))
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", "", err
 	}

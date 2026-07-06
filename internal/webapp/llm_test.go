@@ -33,7 +33,7 @@ func TestGenerateOpenCodePromptUsesZenEndpoint(t *testing.T) {
 			Choices: []struct {
 				Message openCodeChatMessage `json:"message"`
 			}{
-				{Message: openCodeChatMessage{Role: "assistant", Content: "OpenClaw prompt"}},
+				{Message: openCodeChatMessage{Role: "assistant", Content: "AI agent prompt"}},
 			},
 		})
 		return &http.Response{
@@ -51,8 +51,8 @@ func TestGenerateOpenCodePromptUsesZenEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateOpenCodePrompt returned error: %v", err)
 	}
-	if prompt != "OpenClaw prompt" {
-		t.Fatalf("prompt = %q, want OpenClaw prompt", prompt)
+	if prompt != "AI agent prompt" {
+		t.Fatalf("prompt = %q, want AI agent prompt", prompt)
 	}
 	if gotPath != "/zen/v1/chat/completions" {
 		t.Fatalf("path = %q, want /zen/v1/chat/completions", gotPath)

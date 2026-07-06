@@ -2,7 +2,7 @@ package webapp
 
 import "testing"
 
-func TestTailscaleDeviceFromNodeBuildsOpenClawURL(t *testing.T) {
+func TestTailscaleDeviceFromNodeBuildsAIAgentURL(t *testing.T) {
 	device := tailscaleDeviceFromNode(tailscaleNode{
 		ID:           "node-1",
 		HostName:     "donald",
@@ -16,8 +16,8 @@ func TestTailscaleDeviceFromNodeBuildsOpenClawURL(t *testing.T) {
 	if device.IP != "100.78.187.25" {
 		t.Fatalf("ip = %q, want 100.78.187.25", device.IP)
 	}
-	if device.OpenClawURL != "http://100.78.187.25:18800" {
-		t.Fatalf("openclaw url = %q", device.OpenClawURL)
+	if device.AIAgentURL != "http://100.78.187.25:18800" {
+		t.Fatalf("ai agent url = %q", device.AIAgentURL)
 	}
 }
 

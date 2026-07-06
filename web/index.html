@@ -39,7 +39,7 @@
         <header class="topbar">
           <div>
             <h1>Mutesolo</h1>
-            <p>Coordinate OpenClaw agents through controlled prompts and verified commits</p>
+            <p>Coordinate AI agents through controlled prompts and verified commits</p>
           </div>
           <div class="toolbar">
             <button id="refreshBtn" class="secondary" title="Refresh status">Refresh</button>
@@ -69,10 +69,10 @@
         <section id="boardView" class="view">
           <div class="viewHead">
             <div>
-              <p class="breadcrumb">Your projects / OpenClaw / Requirements</p>
+              <p class="breadcrumb">Your projects / AI Agent / Requirements</p>
               <h2>Project Board</h2>
               <p class="muted">Select requirement cards, move them across lanes, or archive them in bulk.</p>
-              <div id="openClawStrip" class="openClawStrip empty">Loading OpenClaw devices...</div>
+              <div id="aiAgentStrip" class="aiAgentStrip empty">Loading AI Agent devices...</div>
             </div>
             <div class="buttonRow">
               <div id="branchDropdown" class="dropdown">
@@ -112,7 +112,7 @@
             <div>
               <p class="breadcrumb">Project board / Requirement</p>
               <h2>Task Detail</h2>
-              <p class="muted">Edit the selected requirement and generate a controlled OpenClaw prompt.</p>
+              <p class="muted">Edit the selected requirement and generate a controlled AI agent prompt.</p>
             </div>
             <div class="buttonRow">
               <button id="promptBtn">Generate Prompt</button>
@@ -165,7 +165,7 @@
           <div class="viewHead">
             <div>
               <h2>Private ClawHub Skills</h2>
-              <p class="muted">Connect to your private ClawHub, inspect skills, then ask a selected OpenClaw to install one through Tailscale.</p>
+              <p class="muted">Connect to your private ClawHub, inspect skills, then ask a selected AI agent to install one through Tailscale.</p>
             </div>
             <button id="loadSkillsBtn">Load Skills</button>
           </div>
@@ -174,8 +174,8 @@
             <div class="panel detailPanel">
               <h2>Skill Detail</h2>
               <div id="skillDetail" class="empty">Select a skill</div>
-              <input id="skillAgentId" placeholder="Target OpenClaw agent id (optional)" />
-              <button id="installSkillBtn" class="wide">Install on OpenClaw</button>
+              <input id="skillAgentId" placeholder="Target AI agent id (optional)" />
+              <button id="installSkillBtn" class="wide">Install on AI Agent</button>
             </div>
           </div>
         </section>
@@ -194,27 +194,29 @@
           <div class="viewHead">
             <div>
               <h2>Connections</h2>
-              <p class="muted">OpenClaw, GitHub, Discord, private ClawHub, and local credentials.</p>
+              <p class="muted">AI Agent, GitHub, Discord, private ClawHub, and local credentials.</p>
             </div>
             <button id="saveConfigBtn">Save Connections</button>
           </div>
           <div class="connectionGrid panel">
-            <label>OpenClaw Tailscale URL<input id="openclawUrl" placeholder="http://100.x.y.z:18800" /></label>
-            <label>OpenClaw bearer token<input id="openclawToken" type="password" placeholder="optional" /></label>
+            <label>AI Agent Tailscale URL<input id="aiAgentUrl" placeholder="http://100.x.y.z:18800" /></label>
+            <label>AI Agent bearer token<input id="aiAgentToken" type="password" placeholder="optional" /></label>
             <label>GitHub repository<input id="githubRepo" placeholder="https://github.com/user/repo" /></label>
             <label>Discord channel or DM URL<input id="discordUrl" placeholder="https://discord.com/channels/..." /></label>
             <label>Discord server widget URL<input id="discordWidgetUrl" placeholder="https://discordapp.com/widget?id=...&theme=dark" /></label>
-            <label>OpenClaw Discord BOT ID<input id="discordBotId" placeholder="1518540891617235114" /></label>
+            <label>Discord BOT ID<input id="discordBotId" placeholder="1518540891617235114" /></label>
+            <label>Discord Guild ID<input id="discordGuildId" placeholder="1503733248587730996" /></label>
+            <label>Discord Bot Username<input id="discordBotUsername" placeholder="BotUsername" /></label>
             <label>Private ClawHub URL<input id="clawhubUrl" placeholder="https://clawhub.internal" /></label>
           </div>
           <div class="statusGrid">
             <div class="panel">
-              <h2>OpenClaw</h2>
+              <h2>AI Agent</h2>
               <div class="statusLine">
-                <span id="openclawDot" class="dot"></span>
-                <strong id="openclawText">OpenClaw unknown</strong>
+                <span id="aiAgentDot" class="dot"></span>
+                <strong id="aiAgentText">AI Agent unknown</strong>
               </div>
-              <p id="openclawMeta" class="muted"></p>
+              <p id="aiAgentMeta" class="muted"></p>
             </div>
             <div class="panel">
               <h2>Discord Widget</h2>

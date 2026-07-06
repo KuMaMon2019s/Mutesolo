@@ -19,18 +19,31 @@ func NewConnector() Connector {
 	return Connector{client: &http.Client{Timeout: 5 * time.Second}}
 }
 
-func (c Connector) CheckOpenClaw(ctx context.Context, baseURL string) OpenClawStatus {
-	status := OpenClawStatus{
-		BaseURL:   baseURL,
+type discordWidgetResponse struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	PresenceCount int    `json:"presence_count"`
+	Members       []struct {
+		ID        string `json:"id"`
+		Username  string `json:"username"`
+		Status    string `json:"status"`
+		AvatarURL string `json:"avatar_url"`
+	} `json:"members"`
+}
+
+func (c Connector) CheckAIAgent(ctx context.Context, guildID, botUsername string) AIAgentStatus {
+	status := AIAgentStatus{
 		CheckedAt: time.Now().UTC().Format(time.RFC3339),
+		Members:   []DiscordMember{},
 	}
-	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	if baseURL == "" || strings.Contains(baseURL, "100.x.y.z") {
-		status.Error = "configure a Tailscale OpenClaw URL"
+	guildID = strings.TrimSpace(guildID)
+	if guildID == "" {
+		status.Error = "configure a Discord Guild ID"
 		return status
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/.well-known/agent-card.json", nil)
+	widgetURL := fmt.Sprintf("https://discord.com/api/guilds/%s/widget.json", guildID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, widgetURL, nil)
 	if err != nil {
 		status.Error = err.Error()
 		return status
@@ -42,19 +55,42 @@ func (c Connector) CheckOpenClaw(ctx context.Context, baseURL string) OpenClawSt
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		status.Error = fmt.Sprintf("agent card returned HTTP %d", resp.StatusCode)
+		status.Error = fmt.Sprintf("discord widget returned HTTP %d", resp.StatusCode)
 		return status
 	}
 
-	var card map[string]any
-	if err := json.NewDecoder(resp.Body).Decode(&card); err != nil {
+	var widget discordWidgetResponse
+	if err := json.NewDecoder(resp.Body).Decode(&widget); err != nil {
 		status.Error = err.Error()
 		return status
 	}
-	status.Online = true
-	status.Name = stringField(card, "name")
-	status.AgentID = firstString(card, "id", "agentId", "agent_id")
-	status.Version = stringField(card, "version")
+
+	status.PresenceCount = widget.PresenceCount
+	for _, member := range widget.Members {
+		status.Members = append(status.Members, DiscordMember{
+			ID:        member.ID,
+			Username:  member.Username,
+			Status:    member.Status,
+			AvatarURL: member.AvatarURL,
+		})
+	}
+
+	botUsername = strings.TrimSpace(botUsername)
+	if botUsername == "" {
+		status.Error = "configure a Discord Bot Username to check online status"
+		return status
+	}
+
+	for _, member := range widget.Members {
+		if strings.EqualFold(member.Username, botUsername) {
+			status.Online = true
+			status.Name = member.Username
+			status.AvatarURL = member.AvatarURL
+			return status
+		}
+	}
+
+	status.Name = botUsername
 	return status
 }
 
@@ -112,26 +148,26 @@ func (c Connector) GetClawHubSkill(ctx context.Context, baseURL, skillID string)
 	return skill, nil
 }
 
-func (c Connector) InstallSkillOnOpenClaw(ctx context.Context, openClawURL, token, clawHubURL string, req SkillInstallRequest) (SkillInstallResult, error) {
+func (c Connector) InstallSkillOnAIAgent(ctx context.Context, aiAgentURL, token, clawHubURL string, req SkillInstallRequest) (SkillInstallResult, error) {
 	if strings.TrimSpace(req.SkillID) == "" {
 		return SkillInstallResult{}, fmt.Errorf("skill id is required")
 	}
-	prompt := fmt.Sprintf(`Install private ClawHub skill for this OpenClaw agent.
+	prompt := fmt.Sprintf(`Install private ClawHub skill for this AI agent.
 
 Skill ID: %s
 ClawHub URL: %s
 Target agent: %s
 
-Use the local OpenClaw skill installer if available. Do not modify system architecture. Report installation result only.`, req.SkillID, strings.TrimSpace(clawHubURL), strings.TrimSpace(req.AgentID))
-	result, err := c.SendOpenClawPrompt(ctx, openClawURL, token, prompt)
+Use the local skill installer if available. Do not modify system architecture. Report installation result only.`, req.SkillID, strings.TrimSpace(clawHubURL), strings.TrimSpace(req.AgentID))
+	result, err := c.SendAIAgentPrompt(ctx, aiAgentURL, token, prompt)
 	return SkillInstallResult{SkillID: req.SkillID, Result: result}, err
 }
 
-func (c Connector) SendOpenClawPrompt(ctx context.Context, baseURL, token, prompt string) (SendResult, error) {
+func (c Connector) SendAIAgentPrompt(ctx context.Context, baseURL, token, prompt string) (SendResult, error) {
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	result := SendResult{Endpoint: baseURL + "/message"}
 	if baseURL == "" || strings.Contains(baseURL, "100.x.y.z") {
-		return result, fmt.Errorf("configure a Tailscale OpenClaw URL")
+		return result, fmt.Errorf("configure an AI Agent Tailscale URL")
 	}
 	if strings.TrimSpace(prompt) == "" {
 		return result, fmt.Errorf("prompt is required")
@@ -164,7 +200,7 @@ func (c Connector) SendOpenClawPrompt(ctx context.Context, baseURL, token, promp
 	responseBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
 	result.Message = strings.TrimSpace(string(responseBody))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return result, fmt.Errorf("openclaw returned HTTP %d", resp.StatusCode)
+		return result, fmt.Errorf("ai agent returned HTTP %d", resp.StatusCode)
 	}
 	result.Sent = true
 	return result, nil

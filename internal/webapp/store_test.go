@@ -88,13 +88,13 @@ func TestRequirementCanAssignAgentWithoutChangingStatus(t *testing.T) {
 	if !ok {
 		t.Fatal("AddRequirement did not find project")
 	}
-	if req.AgentID != "openclaw-a" {
-		t.Fatalf("default agent = %q, want openclaw-a", req.AgentID)
+	if req.AgentID != "ai-agent-a" {
+		t.Fatalf("default agent = %q, want ai-agent-a", req.AgentID)
 	}
 
 	_, ok = UpdateRequirements(&state, project.ID, BoardUpdate{
 		RequirementIDs: []string{req.ID},
-		AgentID:        "openclaw-b",
+		AgentID:        "ai-agent-b",
 	})
 	if !ok {
 		t.Fatal("UpdateRequirements did not find project")
@@ -104,8 +104,8 @@ func TestRequirementCanAssignAgentWithoutChangingStatus(t *testing.T) {
 	if !ok {
 		t.Fatal("FindProject did not find project")
 	}
-	if updated.Requirements[0].AgentID != "openclaw-b" {
-		t.Fatalf("agent id = %q, want openclaw-b", updated.Requirements[0].AgentID)
+	if updated.Requirements[0].AgentID != "ai-agent-b" {
+		t.Fatalf("agent id = %q, want ai-agent-b", updated.Requirements[0].AgentID)
 	}
 	if updated.Requirements[0].Status != "sent" {
 		t.Fatalf("status = %q, want sent", updated.Requirements[0].Status)

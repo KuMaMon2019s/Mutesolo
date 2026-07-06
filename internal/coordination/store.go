@@ -18,10 +18,10 @@ func NewStore(path string) Store {
 }
 
 func DefaultStatePath() string {
-	if path := os.Getenv("OPENCLAW_STATE"); path != "" {
+	if path := os.Getenv("AI_AGENT_STATE"); path != "" {
 		return path
 	}
-	return ".openclaw/state.json"
+	return ".ai-agent/state.json"
 }
 
 func (s Store) Load() (State, error) {

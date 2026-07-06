@@ -84,7 +84,7 @@ func tailscaleDeviceFromNode(node tailscaleNode, self bool, selfOnline bool) Tai
 		Active:      node.Active,
 		Self:        self,
 		LastSeen:    normalizeZeroTime(node.LastSeen),
-		OpenClawURL: openClawURLForTailscaleIP(ip),
+		AIAgentURL:  aiAgentURLForTailscaleIP(ip),
 	}
 }
 
@@ -97,7 +97,7 @@ func firstIPv4(ips []string) string {
 	return ""
 }
 
-func openClawURLForTailscaleIP(ip string) string {
+func aiAgentURLForTailscaleIP(ip string) string {
 	if strings.TrimSpace(ip) == "" {
 		return ""
 	}

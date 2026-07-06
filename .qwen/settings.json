@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(discord.com)",
+      "Bash(go *)"
+    ]
+  },
+  "$version": 4
+}

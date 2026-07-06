@@ -9,7 +9,7 @@ func TestBuildPromptSegmentsAndStoresArtifact(t *testing.T) {
 	project := Project{
 		ID:          "project-1",
 		Name:        "Console",
-		Description: "OpenClaw control console",
+		Description: "AI agent control console",
 		Plan:        "Connect status, manage requirements, emit prompts",
 		Docs:        "Keep generated output separated from runtime",
 	}
@@ -43,8 +43,8 @@ func TestBuildDiscordMessageIncludesCommitInstruction(t *testing.T) {
 
 	message := BuildDiscordMessage(project, req, "do the work")
 
-	if !strings.Contains(message, "OpenClaw A task") {
-		t.Fatalf("message does not target OpenClaw A: %q", message)
+	if !strings.Contains(message, "AI Agent A task") {
+		t.Fatalf("message does not target AI Agent A: %q", message)
 	}
 	if !strings.Contains(message, "commit: <sha>") {
 		t.Fatalf("message does not include commit instruction: %q", message)
@@ -64,11 +64,11 @@ func TestBuildDiscordMessageCanMentionBot(t *testing.T) {
 
 func TestBuildDiscordMessageTargetsAssignedAgent(t *testing.T) {
 	project := Project{Name: "Console"}
-	req := Requirement{ID: "req-1", Title: "Status panel", AgentID: "openclaw-b"}
+	req := Requirement{ID: "req-1", Title: "Status panel", AgentID: "ai-agent-b"}
 
 	message := BuildDiscordMessage(project, req, "do the work")
 
-	if !strings.Contains(message, "OpenClaw B task") {
+	if !strings.Contains(message, "AI Agent B task") {
 		t.Fatalf("message does not target assigned agent: %q", message)
 	}
 }
@@ -169,12 +169,40 @@ func TestBuildLLMPromptInputIncludesControlledRulesAndDetail(t *testing.T) {
 		"Backend structured rules",
 		"Do not introduce self-modifying runtime behavior",
 		"Mutesolo",
-		"需求编辑器",
 		"实现 BlockNote 需求详情编辑",
-		"panda",
 	} {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("prompt does not contain %q: %q", want, prompt)
 		}
+	}
+	for _, unwanted := range []string{
+		"req-1",
+		"Priority",
+		"high",
+		"Assigned AI Agent",
+		"panda",
+		"Block count",
+		"需求编辑器",
+	} {
+		if strings.Contains(prompt, unwanted) {
+			t.Fatalf("prompt should not contain metadata %q: %q", unwanted, prompt)
+		}
+	}
+}
+
+func TestBuildDiscordMessageOmitsRequirementID(t *testing.T) {
+	project := Project{Name: "Console"}
+	req := Requirement{ID: "req-secret-123", Title: "Status panel"}
+
+	message := BuildDiscordMessage(project, req, "do the work")
+
+	if strings.Contains(message, "req-secret-123") {
+		t.Fatalf("discord message should not leak requirement ID: %q", message)
+	}
+	if strings.Contains(message, "Requirement ID") {
+		t.Fatalf("discord message should not mention Requirement ID label: %q", message)
+	}
+	if !strings.Contains(message, "Status panel") {
+		t.Fatalf("discord message lost requirement title: %q", message)
 	}
 }
