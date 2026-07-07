@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -34,7 +35,7 @@ func (s Server) Handler() http.Handler {
 	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(envOrDefault("MUTESOLO_ASSET_FALLBACK_DIR", ".ai-agent/assets")))))
 	mux.Handle("/apps/requirement-editor/", http.StripPrefix("/apps/requirement-editor/", http.FileServer(http.Dir(filepath.Join("webapps", "requirement-editor", "dist")))))
 	mux.HandleFunc("/apps/react-admin/", s.handleReactAdmin)
-	mux.Handle("/", http.FileServer(http.Dir(s.staticDir)))
+	mux.HandleFunc("/", s.handleControlConsole)
 	mux.HandleFunc("/api/state", s.handleState)
 	mux.HandleFunc("/api/config", s.handleConfig)
 	mux.HandleFunc("/api/ai-agent/status", s.handleAIAgentStatus)
@@ -62,6 +63,28 @@ func (s Server) handleReactAdmin(w http.ResponseWriter, r *http.Request) {
 		stripPrefix := "/apps/react-admin"
 		fs := http.StripPrefix(stripPrefix, http.FileServer(http.Dir(distDir)))
 		fs.ServeHTTP(w, r)
+	}
+	devProxy.ServeHTTP(w, r)
+}
+
+func (s Server) handleControlConsole(w http.ResponseWriter, r *http.Request) {
+	// Try Vite dev server first (development mode)
+	devProxy := httputil.NewSingleHostReverseProxy(&url.URL{Scheme: "http", Host: "localhost:5175"})
+	devProxy.ErrorHandler = func(_ http.ResponseWriter, _ *http.Request, _ error) {
+		// Fall back to serving built dist directory (production mode) with SPA fallback
+		distDir := filepath.Join("webapps", "control-console", "dist")
+		// Check if the requested file exists on disk
+		reqPath := r.URL.Path
+		if reqPath == "/" {
+			reqPath = "/index.html"
+		}
+		filePath := filepath.Join(distDir, filepath.Clean(reqPath))
+		if _, err := os.Stat(filePath); err != nil {
+			// SPA fallback: serve index.html for unknown routes
+			http.ServeFile(w, r, filepath.Join(distDir, "index.html"))
+			return
+		}
+		http.FileServer(http.Dir(distDir)).ServeHTTP(w, r)
 	}
 	devProxy.ServeHTTP(w, r)
 }
