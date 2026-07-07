@@ -20,9 +20,9 @@ export default function TextInput({ value, onChange, placeholder, type = 'text' 
         placeholder={placeholder || ''}
         className="
           w-full px-3 py-2 rounded-lg text-sm
-          bg-zinc-900 border border-zinc-700 text-white
-          placeholder-zinc-600
-          focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500
+          bg-white/5 border border-white/10 text-white
+          placeholder-zinc-500
+          focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400
           transition-colors duration-150
         "
       />
