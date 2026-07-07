@@ -20,7 +20,7 @@ export default function TextInput({ value, onChange, placeholder, type = 'text' 
         placeholder={placeholder || ''}
         className="
           w-full px-3 py-2 rounded-lg text-sm
-          bg-white/5 border border-white/10 text-white
+          bg-[#10141a] border border-[#262d37] text-white
           placeholder-zinc-500
           focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400
           transition-colors duration-150

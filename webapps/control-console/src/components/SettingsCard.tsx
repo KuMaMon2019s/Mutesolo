@@ -10,8 +10,8 @@ export default function SettingsCard({ title, description, children }: SettingsC
   return (
     <div className="
       flex items-center gap-4 p-4 rounded-xl
-      bg-white/5 border border-white/10
-      hover:border-white/20 transition-colors duration-150
+      bg-[#1b2028] border border-[#262d37]
+      hover:border-[#435066] transition-colors duration-150
     ">
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-white truncate">{title}</p>
