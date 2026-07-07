@@ -11,17 +11,20 @@ import (
 	"time"
 )
 
-type State struct {
-	Config   Config    `json:"config"`
-	Projects []Project `json:"projects"`
-}
-
-type Store struct {
+// JSONStore implements Repository by reading/writing a single JSON file.
+// It preserves the original file-based behaviour and serves as the fallback
+// backend when SQLite is not available.
+type JSONStore struct {
 	path string
 }
 
-func NewStore(path string) Store {
-	return Store{path: path}
+func NewJSONStore(path string) *JSONStore {
+	return &JSONStore{path: path}
+}
+
+// NewStore keeps the old constructor name for backward compatibility.
+func NewStore(path string) *JSONStore {
+	return NewJSONStore(path)
 }
 
 func DefaultStatePath() string {
@@ -31,7 +34,7 @@ func DefaultStatePath() string {
 	return ".ai-agent/web-state.json"
 }
 
-func (s Store) Load() (State, error) {
+func (s *JSONStore) Load() (State, error) {
 	data, err := os.ReadFile(s.path)
 	if err == nil {
 		var state State
@@ -54,7 +57,7 @@ func (s Store) Load() (State, error) {
 	return state, s.Save(state)
 }
 
-func (s Store) Save(state State) error {
+func (s *JSONStore) Save(state State) error {
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return fmt.Errorf("create web state dir: %w", err)
 	}
@@ -71,6 +74,10 @@ func (s Store) Save(state State) error {
 	}
 	return nil
 }
+
+// ---------------------------------------------------------------------------
+// Pure helpers – operate on State, no I/O
+// ---------------------------------------------------------------------------
 
 func UpsertProject(state *State, input Project) Project {
 	now := time.Now().UTC()
@@ -293,13 +300,11 @@ func newID(name string) string {
 		case r >= '0' && r <= '9':
 			return r
 		default:
-			return '-'
+			return -1
 		}
 	}, name)
-	id = strings.Trim(id, "-")
-	id = strings.Join(strings.FieldsFunc(id, func(r rune) bool { return r == '-' }), "-")
 	if id == "" {
 		id = "item"
 	}
-	return fmt.Sprintf("%s-%d", id, time.Now().UTC().UnixNano())
+	return fmt.Sprintf("%s%d", id, time.Now().UTC().UnixNano())
 }

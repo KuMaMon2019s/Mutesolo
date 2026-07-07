@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -14,12 +16,12 @@ import (
 )
 
 type Server struct {
-	store     Store
+	store     Repository
 	connector Connector
 	staticDir string
 }
 
-func NewServer(store Store, staticDir string) Server {
+func NewServer(store Repository, staticDir string) Server {
 	return Server{
 		store:     store,
 		connector: NewConnector(),
@@ -31,10 +33,12 @@ func (s Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(envOrDefault("MUTESOLO_ASSET_FALLBACK_DIR", ".ai-agent/assets")))))
 	mux.Handle("/apps/requirement-editor/", http.StripPrefix("/apps/requirement-editor/", http.FileServer(http.Dir(filepath.Join("webapps", "requirement-editor", "dist")))))
+	mux.HandleFunc("/apps/react-admin/", s.handleReactAdmin)
 	mux.Handle("/", http.FileServer(http.Dir(s.staticDir)))
 	mux.HandleFunc("/api/state", s.handleState)
 	mux.HandleFunc("/api/config", s.handleConfig)
 	mux.HandleFunc("/api/ai-agent/status", s.handleAIAgentStatus)
+	mux.HandleFunc("/api/discord/members", s.handleDiscordMembers)
 	mux.HandleFunc("/api/tailscale/devices", s.handleTailscaleDevices)
 	mux.HandleFunc("/api/clawhub/skills", s.handleClawHubSkills)
 	mux.HandleFunc("/api/clawhub/skills/", s.handleClawHubSkillActions)
@@ -47,6 +51,19 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/api/generate-prompt", s.handleGeneratePrompt)
 	mux.HandleFunc("/api/github/push", s.handleGitHubPush)
 	return mux
+}
+
+func (s Server) handleReactAdmin(w http.ResponseWriter, r *http.Request) {
+	// Try Vite dev server first (development mode)
+	devProxy := httputil.NewSingleHostReverseProxy(&url.URL{Scheme: "http", Host: "localhost:5173"})
+	devProxy.ErrorHandler = func(_ http.ResponseWriter, _ *http.Request, _ error) {
+		// Fall back to serving built dist directory (production mode)
+		distDir := filepath.Join("webapps", "react-admin", "dist")
+		stripPrefix := "/apps/react-admin"
+		fs := http.StripPrefix(stripPrefix, http.FileServer(http.Dir(distDir)))
+		fs.ServeHTTP(w, r)
+	}
+	devProxy.ServeHTTP(w, r)
 }
 
 func (s Server) handleAssets(w http.ResponseWriter, r *http.Request) {
@@ -170,17 +187,41 @@ func (s Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		writeJSON(w, state.Config)
 	case http.MethodPut:
-		var cfg Config
-		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		var incoming map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&incoming); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		state.Config = cfg
+		mergeString := func(target *string, key string) {
+			if v, ok := incoming[key]; ok {
+				if s, isStr := v.(string); isStr {
+					*target = s
+				}
+			}
+		}
+		mergeBool := func(target *bool, key string) {
+			if v, ok := incoming[key]; ok {
+				if b, isBool := v.(bool); isBool {
+					*target = b
+				}
+			}
+		}
+		mergeString(&state.Config.AIAgentBaseURL, "ai_agent_base_url")
+		mergeString(&state.Config.AIAgentToken, "ai_agent_token")
+		mergeString(&state.Config.GitHubRepo, "github_repo")
+		mergeString(&state.Config.DiscordURL, "discord_url")
+		mergeString(&state.Config.DiscordWidgetURL, "discord_widget_url")
+		mergeString(&state.Config.DiscordBotID, "discord_bot_id")
+		mergeString(&state.Config.DiscordGuildID, "discord_guild_id")
+		mergeString(&state.Config.DiscordBotUsername, "discord_bot_username")
+		mergeString(&state.Config.ClawHubBaseURL, "clawhub_base_url")
+		mergeString(&state.Config.LLMAPIKey, "llm_api_key")
+		mergeBool(&state.Config.LLMLocked, "llm_locked")
 		if err := s.store.Save(state); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		writeJSON(w, cfg)
+		writeJSON(w, state.Config)
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
@@ -193,6 +234,24 @@ func (s Server) handleAIAgentStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, s.connector.CheckAIAgent(r.Context(), state.Config.DiscordGuildID, state.Config.DiscordBotUsername))
+}
+
+func (s Server) handleDiscordMembers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	state, err := s.store.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	members, err := s.connector.GetDiscordMembers(r.Context(), state.Config.DiscordGuildID)
+	if err != nil {
+		writeJSON(w, map[string]any{"members": []DiscordMember{}, "error": err.Error()})
+		return
+	}
+	writeJSON(w, map[string]any{"members": members})
 }
 
 func (s Server) handleTailscaleDevices(w http.ResponseWriter, r *http.Request) {

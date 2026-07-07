@@ -2,6 +2,8 @@
 .venv-mineru/
 .cache/
 .gocache/
+.ai-agent/
+.qwen/
 artifacts/*.json
 /opclawctl
 /mutisolo-web

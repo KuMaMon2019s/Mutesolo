@@ -9,6 +9,8 @@ const state = {
   boardTab: "kanban",
   tailscaleDevices: [],
   tailscaleError: "",
+  discordMembers: [],
+  discordMembersError: "",
   discordText: "",
   llmLocked: false,
 };
@@ -49,7 +51,6 @@ async function loadState() {
   renderTodoRatio();
   loadTailscaleDevices().catch((error) => {
     state.tailscaleError = error.message;
-    renderAIAgentStrip();
   });
 }
 
@@ -305,30 +306,8 @@ function closeDiscordDrawer() {
   el("discordDrawer").classList.remove("open");
 }
 
-function connectDiscordPanel() {
-  if (!el("discordWidgetUrl") || !el("discordPreviewShell") || !el("discordEmbedShell")) return;
-  const url = el("discordWidgetUrl").value.trim();
-  el("discordPreviewShell").classList.add("hidden");
-  el("discordEmbedShell").classList.remove("hidden");
-  const iframe = el("taskDiscordWidget");
-  const hint = el("discordConnectHint");
-  if (!url) {
-    iframe.classList.add("hidden");
-    hint.classList.remove("hidden");
-    return;
-  }
-  iframe.classList.remove("hidden");
-  hint.classList.add("hidden");
-  iframe.src = url;
-}
-
-function showDiscordPreview() {
-  el("discordEmbedShell").classList.add("hidden");
-  el("discordPreviewShell").classList.remove("hidden");
-}
-
 async function refreshConnections() {
-  await Promise.allSettled([loadAIAgentStatus(), loadTailscaleDevices(), loadSkills(), loadRuntimes()]);
+  await Promise.allSettled([loadAIAgentStatus(), loadTailscaleDevices(), loadDiscordMembers(), loadSkills(), loadRuntimes()]);
 }
 
 async function loadAIAgentStatus() {
@@ -353,46 +332,56 @@ async function loadTailscaleDevices() {
   const status = await api("/api/tailscale/devices");
   state.tailscaleDevices = status.devices || [];
   state.tailscaleError = status.error || "";
-  renderAIAgentStrip();
   renderAgentSelects();
   renderBoard();
+}
+
+async function loadDiscordMembers() {
+  try {
+    const data = await api("/api/discord/members");
+    state.discordMembers = (data.members || []).filter(
+      (m) => m.username.toLowerCase() !== "doraemon"
+    );
+    state.discordMembersError = data.error || "";
+  } catch (error) {
+    state.discordMembers = [];
+    state.discordMembersError = error.message;
+  }
+  renderAIAgentStrip();
 }
 
 function renderAIAgentStrip() {
   const strip = el("aiAgentStrip");
   if (!strip) return;
   strip.innerHTML = "";
-  const devices = state.tailscaleDevices.filter(
-    (device) => tailscaleDeviceName(device).toLowerCase() !== "doraemon"
-  );
-  if (!devices.length) {
-    strip.className = "aiAgentStrip empty";
-    strip.textContent = state.tailscaleError ? `Tailscale unavailable: ${state.tailscaleError}` : "No Tailscale devices";
+  const members = state.discordMembers;
+  if (!members.length) {
+    strip.className = "aiAgentStrip empty panel";
+    strip.style.gridColumn = "1 / -1";
+    strip.textContent = state.discordMembersError ? `Discord unavailable: ${state.discordMembersError}` : "No Discord members online";
     return;
   }
-  strip.className = "aiAgentStrip";
+  strip.className = "aiAgentStrip panel";
+  strip.style.gridColumn = "1 / -1";
   const label = document.createElement("span");
   label.className = "stripLabel";
   label.textContent = "AI Agent";
   strip.append(label);
   const avatars = document.createElement("div");
   avatars.className = "aiAgentAvatars";
-  for (const device of devices) {
-    const name = tailscaleDeviceName(device);
-    const node = document.createElement("button");
-    node.className = `aiAgentAvatar ${device.online ? "online" : "offline"}`;
+  for (const member of members) {
+    const name = member.username;
+    const node = document.createElement("div");
+    node.className = `aiAgentAvatar ${member.status === "online" ? "online" : "offline"}`;
     node.style.setProperty("--avatar-bg", avatarColor(name));
-    node.title = `${name} · ${device.online ? "online" : "offline"}${device.ip ? " · " + device.ip : ""}`;
+    node.title = `${name} · ${member.status}`;
+    const avatarContent = member.avatar_url
+      ? `<img class="avatarImg" src="${escapeHtml(member.avatar_url)}" alt="${escapeHtml(name)}" />`
+      : `<span class="avatarFace">${escapeHtml(avatarText(name))}</span>`;
     node.innerHTML = `
-      <span class="avatarFace">${escapeHtml(avatarText(name))}</span>
+      ${avatarContent}
       <span class="presenceDot"></span>
       <span class="avatarName">${escapeHtml(name)}</span>`;
-    if (device.ai_agent_url) {
-      node.addEventListener("click", () => {
-        el("aiAgentUrl").value = device.ai_agent_url;
-        saveConfig().catch((error) => alert(error.message));
-      });
-    }
     avatars.append(node);
   }
   strip.append(avatars);
@@ -552,7 +541,6 @@ async function generatePrompt() {
     el("artifactPath").textContent = result.artifact_path;
     state.discordText = result.prompt || result.discord_text || (result.segments || []).join("\n\n");
     renderPromptResult(result);
-    renderDiscordPreview();
   } catch (error) {
     stopPromptProgress();
     showPromptError(error.message);
@@ -722,24 +710,10 @@ function showPromptError(message) {
   segments.textContent = message || "Prompt generation failed";
 }
 
-function renderDiscordPreview() {
-  const preview = el("discordPreview");
-  if (!preview) return;
-  if (!state.discordText) {
-    preview.innerHTML = `<div class="discordMessage muted">Generate a prompt, then copy it into Discord.</div>`;
-    return;
-  }
-  preview.innerHTML = `<div class="discordMessage"><strong>Mutesolo</strong>${escapeHtml(state.discordText)}</div>`;
-}
-
 async function copyDiscordPrompt() {
   if (!state.discordText) await generatePrompt();
   await navigator.clipboard.writeText(state.discordText);
   alert("Copied prompt");
-}
-
-function openDiscord() {
-  connectDiscordPanel();
 }
 
 async function pushGitHub() {

@@ -94,6 +94,40 @@ func (c Connector) CheckAIAgent(ctx context.Context, guildID, botUsername string
 	return status
 }
 
+func (c Connector) GetDiscordMembers(ctx context.Context, guildID string) ([]DiscordMember, error) {
+	guildID = strings.TrimSpace(guildID)
+	if guildID == "" {
+		return nil, fmt.Errorf("configure a Discord Guild ID")
+	}
+	widgetURL := fmt.Sprintf("https://discord.com/api/guilds/%s/widget.json", guildID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, widgetURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("discord widget returned HTTP %d", resp.StatusCode)
+	}
+	var widget discordWidgetResponse
+	if err := json.NewDecoder(resp.Body).Decode(&widget); err != nil {
+		return nil, err
+	}
+	var members []DiscordMember
+	for _, member := range widget.Members {
+		members = append(members, DiscordMember{
+			ID:        member.ID,
+			Username:  member.Username,
+			Status:    member.Status,
+			AvatarURL: member.AvatarURL,
+		})
+	}
+	return members, nil
+}
+
 func (c Connector) ListClawHubSkills(ctx context.Context, baseURL string) ([]SkillSummary, error) {
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if baseURL == "" || strings.Contains(baseURL, "example.com") {

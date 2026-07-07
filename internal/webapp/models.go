@@ -2,17 +2,22 @@ package webapp
 
 import "time"
 
+type State struct {
+	Config   Config    `json:"config"`
+	Projects []Project `json:"projects"`
+}
+
 type Config struct {
 	AIAgentBaseURL     string `json:"ai_agent_base_url"`
-	AIAgentToken       string `json:"ai_agent_token,omitempty"`
-	DiscordURL         string `json:"discord_url,omitempty"`
-	DiscordWidgetURL   string `json:"discord_widget_url,omitempty"`
-	DiscordBotID       string `json:"discord_bot_id,omitempty"`
-	DiscordGuildID     string `json:"discord_guild_id,omitempty"`
-	DiscordBotUsername string `json:"discord_bot_username,omitempty"`
+	AIAgentToken       string `json:"ai_agent_token"`
+	DiscordURL         string `json:"discord_url"`
+	DiscordWidgetURL   string `json:"discord_widget_url"`
+	DiscordBotID       string `json:"discord_bot_id"`
+	DiscordGuildID     string `json:"discord_guild_id"`
+	DiscordBotUsername string `json:"discord_bot_username"`
 	GitHubRepo         string `json:"github_repo"`
 	ClawHubBaseURL     string `json:"clawhub_base_url"`
-	LLMAPIKey          string `json:"llm_api_key,omitempty"`
+	LLMAPIKey          string `json:"llm_api_key"`
 	LLMLocked          bool   `json:"llm_locked"`
 }
 

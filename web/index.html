@@ -72,7 +72,6 @@
               <p class="breadcrumb">Your projects / AI Agent / Requirements</p>
               <h2>Project Board</h2>
               <p class="muted">Select requirement cards, move them across lanes, or archive them in bulk.</p>
-              <div id="aiAgentStrip" class="aiAgentStrip empty">Loading AI Agent devices...</div>
             </div>
             <div class="buttonRow">
               <div id="branchDropdown" class="dropdown">
@@ -222,18 +221,10 @@
               <h2>Discord Widget</h2>
               <button id="openDiscordDrawerBtn" class="secondary" type="button">Open Discord</button>
             </div>
+            <div id="aiAgentStrip" class="aiAgentStrip empty panel" style="grid-column: 1 / -1">Loading AI Agent...</div>
           </div>
         </section>
       </section>
-
-      <div id="discordDrawerOverlay" class="discordDrawerOverlay"></div>
-      <aside id="discordDrawer" class="discordDrawer">
-        <div class="discordDrawerHead">
-          <h3>Discord Widget</h3>
-          <button id="closeDiscordDrawerBtn" class="discordDrawerClose" type="button">×</button>
-        </div>
-        <iframe id="discordDrawerIframe" title="Discord server widget" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
-      </aside>
 
       <div id="requirementModal" class="modalOverlay hidden">
         <section class="modal">
@@ -270,6 +261,16 @@
         </section>
       </div>
     </main>
+
+    <div id="discordDrawerOverlay" class="discordDrawerOverlay"></div>
+    <aside id="discordDrawer" class="discordDrawer">
+      <div class="discordDrawerHead">
+        <h3>Discord Widget</h3>
+        <button id="closeDiscordDrawerBtn" class="discordDrawerClose" type="button">×</button>
+      </div>
+      <iframe id="discordDrawerIframe" title="Discord server widget" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
+    </aside>
+
     <script src="/app.js"></script>
   </body>
 </html>

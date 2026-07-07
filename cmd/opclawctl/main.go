@@ -26,11 +26,17 @@ func run(args []string) error {
 		return nil
 	}
 
-	store := coordination.NewStore(coordination.DefaultStatePath())
 	if args[0] == "pipeline" {
 		return pipelineCommand(args[1:])
 	}
-	return store.WithState(func(state *coordination.State) (bool, error) {
+
+	repo, cleanup, err := openRepository()
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	return coordination.WithState(repo, func(state *coordination.State) (bool, error) {
 		switch args[0] {
 		case "agents":
 			return false, agentsCommand(args[1:], *state)
@@ -45,6 +51,40 @@ func run(args []string) error {
 			return false, fmt.Errorf("unknown command %q", args[0])
 		}
 	})
+}
+
+// openRepository resolves the storage backend (SQLite preferred, JSON fallback)
+// and returns a Repository plus a cleanup function.
+func openRepository() (coordination.Repository, func(), error) {
+	dbPath := coordination.DefaultDBPath()
+	jsonPath := coordination.DefaultStatePath()
+
+	backend := resolveCoordBackend(dbPath, jsonPath)
+	switch backend {
+	case "sqlite":
+		store, err := coordination.NewSQLiteStore(dbPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("open sqlite: %w", err)
+		}
+		return store, func() { store.Close() }, nil
+	default:
+		return coordination.NewJSONStore(jsonPath), func() {}, nil
+	}
+}
+
+func resolveCoordBackend(dbPath, jsonPath string) string {
+	if _, err := os.Stat(dbPath); err == nil {
+		return "sqlite"
+	}
+	if _, err := os.Stat(jsonPath); err == nil {
+		return "json"
+	}
+	// Prefer sqlite if the webapp database already exists (shared DB).
+	webDB := ".ai-agent/mutesolo.db"
+	if _, err := os.Stat(webDB); err == nil {
+		return "sqlite"
+	}
+	return "sqlite"
 }
 
 func pipelineCommand(args []string) error {
