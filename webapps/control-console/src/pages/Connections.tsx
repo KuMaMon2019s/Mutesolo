@@ -218,12 +218,12 @@ export default function Connections({ ctx: _ctx }: Props) {
         {config.discord_widget_url && (
           <section style={{ marginTop: '24px' }}>
             <div className="flex items-center gap-2 mb-3 px-1">
-              <span className="text-zinc-400">
+              <span className="text-white">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="m2.047 5.25.899 11.291a1.5 1.5 0 0 0 1.493 1.21h15.122a1.5 1.5 0 0 0 1.493-1.21l.899-11.291A1.5 1.5 0 0 0 20.46 4H3.54a1.5 1.5 0 0 0-1.493 1.25ZM9 10h.01M15 10h.01M9.5 15a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5Z" />
                 </svg>
               </span>
-              <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">Widget Preview</h2>
+              <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Widget Preview</h2>
             </div>
             <div className="rounded-xl bg-zinc-900 border border-zinc-700/60 p-5">
               {config.discord_widget_url.includes('<iframe') || config.discord_widget_url.includes('<') ? (

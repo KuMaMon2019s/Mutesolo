@@ -25,7 +25,7 @@ export default function TextInput({ value, onChange, placeholder, type = 'text' 
         <button
           type="button"
           onClick={() => setIsPassword(!isPassword)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 p-1"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-1"
         >
           {isPassword
             ? <EyeSlashIcon className="w-4 h-4" />
