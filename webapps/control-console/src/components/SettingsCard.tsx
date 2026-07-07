@@ -1,18 +1,17 @@
 import { type ReactNode } from 'react';
+import { cardVariants } from '../variants';
+import mergeTW from '../utils/mergeTW';
 
 interface SettingsCardProps {
   title: string;
   description?: string;
   children: ReactNode;
+  variant?: 'default' | 'elevated';
 }
 
-export default function SettingsCard({ title, description, children }: SettingsCardProps) {
+export default function SettingsCard({ title, description, children, variant = 'default' }: SettingsCardProps) {
   return (
-    <div className="
-      flex items-center gap-4 p-4 rounded-xl
-      bg-[#1b2028] border border-[#262d37]
-      hover:border-[#435066] transition-colors duration-150
-    ">
+    <div className={mergeTW('flex items-center gap-4 p-4', cardVariants[variant])}>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-white truncate">{title}</p>
         {description && (

@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { AppContextType } from '../App';
 import { createBranch, createRequirement, updateBoard } from '../api/projects';
+import { buttonVariants } from '../variants';
+import mergeTW from '../utils/mergeTW';
 
 interface Props { ctx: AppContextType }
 
@@ -156,11 +158,11 @@ export default function Board({ ctx }: Props) {
               </div>
             )}
           </div>
-          <button className="secondary" onClick={() => {
+          <button className={mergeTW(buttonVariants.secondary)} onClick={() => {
             if (!project) { alert('Select a project first'); return; }
             setBranchModalOpen(true);
           }}>Branch</button>
-          <button onClick={() => {
+          <button className={mergeTW(buttonVariants.default)} onClick={() => {
             if (!project) { alert('Select a project first'); return; }
             setReqStatus('draft');
             setReqModalOpen(true);
@@ -176,9 +178,9 @@ export default function Board({ ctx }: Props) {
             <select className="moveBranchSelect" disabled>
               <option value="">Select branch...</option>
             </select>
-            <button className="secondary" disabled>Move</button>
+            <button className={mergeTW(buttonVariants.secondary)} disabled>Move</button>
           </div>
-          <button className="secondary" onClick={handleCloseSelected}>Close</button>
+          <button className={mergeTW(buttonVariants.secondary)} onClick={handleCloseSelected}>Close</button>
         </div>
       )}
 
@@ -298,7 +300,7 @@ export default function Board({ ctx }: Props) {
           <section className="modal compactModal">
             <div className="modalHead">
               <h2>New Branch</h2>
-              <button className="secondary" onClick={() => setBranchModalOpen(false)}>Close</button>
+              <button className={mergeTW(buttonVariants.secondary)} onClick={() => setBranchModalOpen(false)}>Close</button>
             </div>
             <div className="formStack">
               <input
@@ -309,7 +311,7 @@ export default function Board({ ctx }: Props) {
                 autoFocus
               />
             </div>
-            <button onClick={handleCreateBranch}>Create Branch</button>
+            <button className={mergeTW(buttonVariants.default)} onClick={handleCreateBranch}>Create Branch</button>
           </section>
         </div>
       )}
@@ -320,7 +322,7 @@ export default function Board({ ctx }: Props) {
           <section className="modal">
             <div className="modalHead">
               <h2>New Requirement</h2>
-              <button className="secondary" onClick={() => setReqModalOpen(false)}>Close</button>
+              <button className={mergeTW(buttonVariants.secondary)} onClick={() => setReqModalOpen(false)}>Close</button>
             </div>
             <div className="formStack">
               <input
@@ -349,7 +351,7 @@ export default function Board({ ctx }: Props) {
                 onChange={e => setReqDescription(e.target.value)}
               />
             </div>
-            <button onClick={handleCreateRequirement}>Add</button>
+            <button className={mergeTW(buttonVariants.default)} onClick={handleCreateRequirement}>Add</button>
           </section>
         </div>
       )}

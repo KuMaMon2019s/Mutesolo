@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { AppContextType } from '../App';
+import { buttonVariants } from '../variants';
+import mergeTW from '../utils/mergeTW';
 
 interface Props { ctx: AppContextType }
 
@@ -34,15 +36,15 @@ export default function TaskDetail({ ctx }: Props) {
           <p className="muted">Edit the selected requirement and generate a controlled AI agent prompt.</p>
         </div>
         <div className="buttonRow">
-          <button disabled={generating}>Generate Prompt</button>
-          <button className="secondary">Copy</button>
+          <button className={mergeTW(buttonVariants.default)} disabled={generating}>Generate Prompt</button>
+          <button className={mergeTW(buttonVariants.secondary)}>Copy</button>
         </div>
       </div>
       <div className="taskSplit">
         <section className="panel taskDetailPanel">
           <div className="panelHead">
             <h2>Requirement</h2>
-            <button className="secondary">Save</button>
+            <button className={mergeTW(buttonVariants.secondary)}>Save</button>
           </div>
           <div className="formStack taskMetaForm">
             <input
@@ -91,8 +93,8 @@ export default function TaskDetail({ ctx }: Props) {
                 onChange={e => setLlmApiKey(e.target.value)}
               />
             </label>
-            <button className="secondary" type="button">Test</button>
-            <button className="secondary" type="button">Save</button>
+            <button className={mergeTW(buttonVariants.secondary)} type="button">Test</button>
+            <button className={mergeTW(buttonVariants.secondary)} type="button">Save</button>
           </div>
           <p className="llmTestStatus muted">LLM config not tested</p>
           {generating && (

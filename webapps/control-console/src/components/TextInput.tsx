@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { inputVariants } from '../variants';
 
 interface TextInputProps {
   value: string;
@@ -18,13 +19,7 @@ export default function TextInput({ value, onChange, placeholder, type = 'text' 
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder || ''}
-        className="
-          w-full px-3 py-2 rounded-lg text-sm
-          bg-[#10141a] border border-[#262d37] text-white
-          placeholder-zinc-500
-          focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400
-          transition-colors duration-150
-        "
+        className={inputVariants.default}
       />
       {type === 'password' && (
         <button

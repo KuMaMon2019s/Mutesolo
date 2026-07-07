@@ -11,6 +11,8 @@ import SettingsSection from '../components/SettingsSection';
 import SettingsCard from '../components/SettingsCard';
 import TextInput from '../components/TextInput';
 import Toggle from '../components/Toggle';
+import { buttonVariants } from '../variants';
+import mergeTW from '../utils/mergeTW';
 import { fetchConfig, saveConfig, type Config } from '../api/config';
 import { fetchAIAgentStatus, fetchDiscordMembers } from '../api/projects';
 
@@ -180,7 +182,7 @@ export default function Connections({ ctx: _ctx }: Props) {
           </div>
           <div className="panel">
             <h2>Discord Widget</h2>
-            <button className="secondary" type="button" onClick={openDrawer}>Open Discord</button>
+            <button className={mergeTW(buttonVariants.secondary)} type="button" onClick={openDrawer}>Open Discord</button>
           </div>
 
           {/* AI Agent Strip */}
