@@ -174,7 +174,7 @@ export default function Connections({ ctx: _ctx }: Props) {
               <span className={`dot ${aiAgentStatus?.online ? 'ok' : 'bad'}`} />
               <strong>{aiAgentStatus?.online ? 'AI Agent online' : 'AI Agent offline'}</strong>
             </div>
-            <p className="muted">
+            <p className="muted" style={{ color: '#d8dee8' }}>
               {aiAgentStatus?.online
                 ? `${aiAgentStatus.name || 'agent'} · ${aiAgentStatus.presence_count || 0} online`
                 : aiAgentStatus?.error || 'not reachable'}
@@ -188,7 +188,7 @@ export default function Connections({ ctx: _ctx }: Props) {
           {/* AI Agent Strip */}
           <div className="aiAgentStrip panel" style={{ gridColumn: '1 / -1' }}>
             {discordMembers.length === 0 ? (
-              <span className="empty">No Discord members online</span>
+              <span className="empty" style={{ color: '#d8dee8' }}>No Discord members online</span>
             ) : (
               <>
                 <span className="stripLabel">AI Agent</span>
