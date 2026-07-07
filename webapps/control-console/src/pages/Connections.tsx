@@ -182,7 +182,7 @@ export default function Connections({ ctx: _ctx }: Props) {
           </div>
           <div className="panel">
             <h2>Discord Widget</h2>
-            <button className={mergeTW(buttonVariants.secondary)} type="button" onClick={openDrawer}>Open Discord</button>
+            <button className={mergeTW(buttonVariants.primary)} type="button" onClick={openDrawer}>Open Discord</button>
           </div>
 
           {/* AI Agent Strip */}

@@ -1,5 +1,6 @@
 export const buttonVariants = {
   default: "bg-white/10 hover:bg-white/20 text-white py-2.5 px-4 rounded-lg font-medium text-sm transition-colors duration-150",
+  primary: "bg-blue-600 hover:bg-blue-500 text-white py-2.5 px-4 rounded-lg font-medium text-sm transition-colors duration-150",
   secondary: "bg-white/5 hover:bg-white/10 text-zinc-300 py-2.5 px-4 rounded-lg font-medium text-sm transition-colors duration-150",
   danger: "bg-red-600/20 hover:bg-red-600/30 text-red-400 py-2.5 px-4 rounded-lg font-medium text-sm transition-colors duration-150",
   ghost: "hover:bg-white/5 text-zinc-400 py-2.5 px-4 rounded-lg font-medium text-sm transition-colors duration-150",
