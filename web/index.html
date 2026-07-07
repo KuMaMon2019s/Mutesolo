@@ -220,11 +220,20 @@
             </div>
             <div class="panel">
               <h2>Discord Widget</h2>
-              <iframe id="discordWidget" class="discordWidget" title="Discord server widget" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
+              <button id="openDiscordDrawerBtn" class="secondary" type="button">Open Discord</button>
             </div>
           </div>
         </section>
       </section>
+
+      <div id="discordDrawerOverlay" class="discordDrawerOverlay"></div>
+      <aside id="discordDrawer" class="discordDrawer">
+        <div class="discordDrawerHead">
+          <h3>Discord Widget</h3>
+          <button id="closeDiscordDrawerBtn" class="discordDrawerClose" type="button">×</button>
+        </div>
+        <iframe id="discordDrawerIframe" title="Discord server widget" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
+      </aside>
 
       <div id="requirementModal" class="modalOverlay hidden">
         <section class="modal">

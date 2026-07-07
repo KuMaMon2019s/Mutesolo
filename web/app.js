@@ -280,13 +280,29 @@ async function saveConfig() {
 }
 
 function renderDiscordWidget() {
-  const iframe = el("discordWidget");
+  const iframe = el("discordDrawerIframe");
   const url = el("discordWidgetUrl").value.trim();
   if (!url) {
     iframe.removeAttribute("src");
     return;
   }
   iframe.src = url;
+}
+
+function openDiscordDrawer() {
+  const url = el("discordWidgetUrl").value.trim();
+  if (!url) {
+    alert("Discord widget URL not configured in Connections");
+    return;
+  }
+  renderDiscordWidget();
+  el("discordDrawerOverlay").classList.add("open");
+  el("discordDrawer").classList.add("open");
+}
+
+function closeDiscordDrawer() {
+  el("discordDrawerOverlay").classList.remove("open");
+  el("discordDrawer").classList.remove("open");
 }
 
 function connectDiscordPanel() {
@@ -346,7 +362,10 @@ function renderAIAgentStrip() {
   const strip = el("aiAgentStrip");
   if (!strip) return;
   strip.innerHTML = "";
-  if (!state.tailscaleDevices.length) {
+  const devices = state.tailscaleDevices.filter(
+    (device) => tailscaleDeviceName(device).toLowerCase() !== "doraemon"
+  );
+  if (!devices.length) {
     strip.className = "aiAgentStrip empty";
     strip.textContent = state.tailscaleError ? `Tailscale unavailable: ${state.tailscaleError}` : "No Tailscale devices";
     return;
@@ -358,7 +377,7 @@ function renderAIAgentStrip() {
   strip.append(label);
   const avatars = document.createElement("div");
   avatars.className = "aiAgentAvatars";
-  for (const device of state.tailscaleDevices) {
+  for (const device of devices) {
     const name = tailscaleDeviceName(device);
     const node = document.createElement("button");
     node.className = `aiAgentAvatar ${device.online ? "online" : "offline"}`;
@@ -1195,9 +1214,11 @@ function agentOptions(selectedAgent) {
 }
 
 function aiAgentOptions(selectedAgent = "") {
-  const online = state.tailscaleDevices.filter((device) => device.online);
+  const online = state.tailscaleDevices.filter(
+    (device) => device.online && tailscaleDeviceName(device).toLowerCase() !== "doraemon"
+  );
   const options = online.map((device) => [tailscaleDeviceName(device), tailscaleDeviceName(device)]);
-  if (selectedAgent && !options.some(([value]) => value === selectedAgent)) {
+  if (selectedAgent && !options.some(([value]) => value === selectedAgent) && selectedAgent.toLowerCase() !== "doraemon") {
     options.push([selectedAgent, agentLabel(selectedAgent)]);
   }
   if (!options.length) options.push(["ai-agent-a", "AI Agent A"]);
@@ -1205,7 +1226,9 @@ function aiAgentOptions(selectedAgent = "") {
 }
 
 function defaultAgentID() {
-  const device = state.tailscaleDevices.find((item) => item.online);
+  const device = state.tailscaleDevices.find(
+    (item) => item.online && tailscaleDeviceName(item).toLowerCase() !== "doraemon"
+  );
   return device ? tailscaleDeviceName(device) : "ai-agent-a";
 }
 
@@ -1313,6 +1336,9 @@ bind("closeSelectedBtn", closeSelected);
 bind("moveSelectedBranchBtn", moveSelectedRequirementToBranch);
 bind("loadSkillsBtn", loadSkills);
 bind("installSkillBtn", installSelectedSkill);
+bind("openDiscordDrawerBtn", openDiscordDrawer);
+bind("closeDiscordDrawerBtn", closeDiscordDrawer);
+el("discordDrawerOverlay")?.addEventListener("click", closeDiscordDrawer);
 el("selectedBranchMoveSelect").addEventListener("change", updateMoveButtonState);
 document.addEventListener("click", (event) => {
   if (!event.target.closest("#branchDropdown")) closeBranchDropdown();
