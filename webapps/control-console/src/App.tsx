@@ -11,7 +11,7 @@ import type { AppState, Project, ProjectBranch, Requirement } from './api/state'
 import { fetchState } from './api/state';
 import { fetchConfig, type Config } from './api/config';
 
-export type ViewId = 'projectsView' | 'boardView' | 'taskView' | 'skillsView' | 'runtimesView' | 'connectionsView';
+export type ViewId = 'projectsView' | 'boardView' | 'taskView' | 'skillsView' | 'skillDetailView' | 'runtimesView' | 'connectionsView';
 
 export interface AppContextType {
   state: AppState | null;
@@ -36,6 +36,38 @@ export interface AppContextType {
   currentRequirement: () => Requirement | null;
 }
 
+const APP_CACHE_KEY = 'mutesolo.console.app-cache.v1';
+const APP_CACHE_TTL_MS = 15 * 60 * 1000;
+
+type AppCache = {
+  ts: number;
+  currentView?: ViewId;
+  selectedProject?: string;
+  selectedBranch?: string;
+  selectedRequirement?: string;
+  boardTab?: 'kanban' | 'branch';
+};
+
+function loadAppCache(): AppCache | null {
+  try {
+    const raw = localStorage.getItem(APP_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AppCache;
+    if (!parsed?.ts || Date.now() - parsed.ts > APP_CACHE_TTL_MS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveAppCache(cache: AppCache) {
+  try {
+    localStorage.setItem(APP_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    // ignore storage failures
+  }
+}
+
 function parseHash(): Record<string, string> {
   const hash = window.location.hash.slice(1);
   if (!hash) return {};
@@ -58,13 +90,14 @@ function syncHash(params: Record<string, string>) {
 }
 
 export default function App() {
+  const cached = loadAppCache();
   const [appState, setAppState] = useState<AppState | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
-  const [currentView, setCurrentView] = useState<ViewId>('projectsView');
-  const [selectedProject, setSelectedProject] = useState('');
-  const [selectedBranch, setSelectedBranch] = useState('');
-  const [selectedRequirement, setSelectedRequirement] = useState('');
-  const [boardTab, setBoardTab] = useState<'kanban' | 'branch'>('kanban');
+  const [currentView, setCurrentView] = useState<ViewId>(cached?.currentView ?? 'projectsView');
+  const [selectedProject, setSelectedProject] = useState(cached?.selectedProject ?? '');
+  const [selectedBranch, setSelectedBranch] = useState(cached?.selectedBranch ?? '');
+  const [selectedRequirement, setSelectedRequirement] = useState(cached?.selectedRequirement ?? '');
+  const [boardTab, setBoardTab] = useState<'kanban' | 'branch'>(cached?.boardTab ?? 'kanban');
   const [selectedRequirements, setSelectedRequirements] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
@@ -109,13 +142,14 @@ export default function App() {
   const selectProject = useCallback((id: string) => {
     const project = projects.find(p => p.id === id);
     setSelectedProject(id);
-    if (project) {
+    // Only reset branch when switching to a DIFFERENT project
+    if (project && id !== selectedProject) {
       setSelectedBranch(firstBranch(project).id);
     }
     setSelectedRequirement('');
     setSelectedRequirements(new Set());
     setBoardTab('kanban');
-  }, [projects, firstBranch]);
+  }, [projects, firstBranch, selectedProject]);
 
   const selectBranch = useCallback((id: string) => {
     setSelectedBranch(id);
@@ -153,6 +187,18 @@ export default function App() {
     return `${denominator ? Math.round((todo / denominator) * 100) : 0}%`;
   })();
 
+  // Sync app state to cache (15 min TTL)
+  useEffect(() => {
+    saveAppCache({
+      ts: Date.now(),
+      currentView,
+      selectedProject,
+      selectedBranch,
+      selectedRequirement,
+      boardTab,
+    });
+  }, [currentView, selectedProject, selectedBranch, selectedRequirement, boardTab]);
+
   // Sync hash on state changes
   useEffect(() => {
     const params: Record<string, string> = {};
@@ -182,7 +228,7 @@ export default function App() {
       if (hash.tab === 'branch') setBoardTab('branch');
     }
     const viewId = hash.view as ViewId | undefined;
-    if (viewId && ['projectsView', 'boardView', 'taskView', 'skillsView', 'runtimesView', 'connectionsView'].includes(viewId)) {
+    if (viewId && ['projectsView', 'boardView', 'taskView', 'skillsView', 'skillDetailView', 'runtimesView', 'connectionsView'].includes(viewId)) {
       setCurrentView(viewId);
     }
     // Only run on initial load
@@ -218,22 +264,27 @@ export default function App() {
       case 'boardView': return <Board ctx={ctx} />;
       case 'taskView': return <TaskDetail ctx={ctx} />;
       case 'skillsView': return <Skills ctx={ctx} />;
+      case 'skillDetailView': return <Skills ctx={ctx} />;
       case 'runtimesView': return <Runtimes ctx={ctx} />;
       case 'connectionsView': return <Connections ctx={ctx} />;
     }
   };
 
+  const showSidebar = currentView === 'boardView' || currentView === 'taskView';
+
   return (
-    <main className="appShell">
+    <main className={`appShell${showSidebar ? '' : ' noSidebar'}`}>
       <NavRail
         currentView={currentView}
         onViewChange={setView}
         todoRatio={todoRatio}
       />
-      <ModuleSidebar
-        ctx={ctx}
-        projects={projects}
-      />
+      {showSidebar && (
+        <ModuleSidebar
+          ctx={ctx}
+          projects={projects}
+        />
+      )}
       <section className="mainArea">
         {renderView()}
       </section>

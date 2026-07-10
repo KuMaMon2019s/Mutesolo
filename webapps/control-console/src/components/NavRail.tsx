@@ -15,10 +15,11 @@ const navItems: { view: ViewId; label: string; letter: string }[] = [
 ];
 
 export default function NavRail({ currentView, onViewChange, todoRatio }: NavRailProps) {
+  const pct = parseInt(todoRatio) || 0;
   return (
     <aside className="navRail">
       <div className="navLogo" title="Mutesolo">M</div>
-      <div className="statusPill">
+      <div className="statusPill" style={{ '--fill-pct': `${pct}%` } as React.CSSProperties}>
         <strong>{todoRatio}</strong>
         <span>TO DO</span>
       </div>

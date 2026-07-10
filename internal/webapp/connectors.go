@@ -1,12 +1,14 @@
 package webapp
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -128,14 +130,18 @@ func (c Connector) GetDiscordMembers(ctx context.Context, guildID string) ([]Dis
 	return members, nil
 }
 
-func (c Connector) ListClawHubSkills(ctx context.Context, baseURL string) ([]SkillSummary, error) {
+func (c Connector) ListClawHubSkills(ctx context.Context, baseURL, apiKey string) ([]SkillSummary, error) {
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if baseURL == "" || strings.Contains(baseURL, "example.com") {
 		return []SkillSummary{}, nil
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/skills", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/v1/skills", nil)
 	if err != nil {
 		return nil, err
+	}
+	apiKey = strings.TrimSpace(apiKey)
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 	resp, err := c.client.Do(req)
 	if err != nil {
@@ -145,9 +151,38 @@ func (c Connector) ListClawHubSkills(ctx context.Context, baseURL string) ([]Ski
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("clawhub returned HTTP %d", resp.StatusCode)
 	}
-	var skills []SkillSummary
-	if err := json.NewDecoder(resp.Body).Decode(&skills); err != nil {
+	var wrapper struct {
+		Items []struct {
+			Slug        string            `json:"slug"`
+			DisplayName string            `json:"displayName"`
+			Summary     string            `json:"summary"`
+			Tags        map[string]string `json:"tags"`
+			Stats       *SkillStats       `json:"stats"`
+			CreatedAt   int64             `json:"createdAt"`
+			UpdatedAt   int64             `json:"updatedAt"`
+		} `json:"items"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&wrapper); err != nil {
 		return nil, err
+	}
+	skills := make([]SkillSummary, 0, len(wrapper.Items))
+	for _, item := range wrapper.Items {
+		version := ""
+		if item.Tags != nil {
+			if v, ok := item.Tags["latest"]; ok {
+				version = v
+			}
+		}
+		skills = append(skills, SkillSummary{
+			ID:          item.Slug,
+			Name:        item.DisplayName,
+			Description: item.Summary,
+			Version:     version,
+			Tags:        item.Tags,
+			Stats:       item.Stats,
+			CreatedAt:   item.CreatedAt,
+			UpdatedAt:   item.UpdatedAt,
+		})
 	}
 	return skills, nil
 }
@@ -160,7 +195,7 @@ func (c Connector) GetClawHubSkill(ctx context.Context, baseURL, skillID string)
 	if baseURL == "" || strings.Contains(baseURL, "example.com") {
 		return SkillSummary{ID: skillID, Description: "Configure a private ClawHub URL to load skill details."}, nil
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/skills/"+skillID, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/v1/skills/"+skillID, nil)
 	if err != nil {
 		return SkillSummary{}, err
 	}
@@ -172,14 +207,123 @@ func (c Connector) GetClawHubSkill(ctx context.Context, baseURL, skillID string)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return SkillSummary{}, fmt.Errorf("clawhub skill returned HTTP %d", resp.StatusCode)
 	}
-	var skill SkillSummary
-	if err := json.NewDecoder(resp.Body).Decode(&skill); err != nil {
+	var response struct {
+		Skill struct {
+			ID          string            `json:"id"`
+			Name        string            `json:"name"`
+			Description string            `json:"description"`
+			Tags        map[string]string `json:"tags"`
+			Version     string            `json:"version"`
+		} `json:"skill"`
+		LatestVersion struct {
+			Version     string `json:"version"`
+			Changelog   string `json:"changelog"`
+			PublishedAt string `json:"published_at"`
+		} `json:"latestVersion"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return SkillSummary{}, err
+	}
+	skill := SkillSummary{
+		ID:          response.Skill.ID,
+		Name:        response.Skill.Name,
+		Description: response.Skill.Description,
+		Tags:        response.Skill.Tags,
+		Version:     response.Skill.Version,
 	}
 	if skill.ID == "" {
 		skill.ID = skillID
 	}
 	return skill, nil
+}
+
+type ClawHubSkillFile struct {
+	Path    string `json:"path"`
+	Content string `json:"content,omitempty"`
+}
+
+func (c Connector) GetClawHubSkillFiles(ctx context.Context, baseURL, skillID string) ([]ClawHubSkillFile, error) {
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if strings.TrimSpace(skillID) == "" {
+		return nil, fmt.Errorf("skill id is required")
+	}
+	if baseURL == "" || strings.Contains(baseURL, "example.com") {
+		return []ClawHubSkillFile{}, nil
+	}
+
+	rawURL := baseURL + "/api/v1/packages/" + skillID + "/download"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("clawhub skill download returned HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 32*1024*1024))
+	if err != nil {
+		return nil, err
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
+	if err != nil {
+		return nil, err
+	}
+	files := make([]ClawHubSkillFile, 0, len(zr.File))
+	for _, f := range zr.File {
+		if f.FileInfo().IsDir() {
+			continue
+		}
+		name := strings.TrimPrefix(f.Name, "./")
+		if name == "" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			continue
+		}
+		data, err := io.ReadAll(io.LimitReader(rc, 512*1024))
+		rc.Close()
+		if err != nil {
+			continue
+		}
+		files = append(files, ClawHubSkillFile{Path: name, Content: string(data)})
+	}
+	return files, nil
+}
+
+func (c Connector) GetClawHubSkillMarkdown(ctx context.Context, baseURL, skillID string) (string, error) {
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if strings.TrimSpace(skillID) == "" {
+		return "", fmt.Errorf("skill id is required")
+	}
+	if baseURL == "" || strings.Contains(baseURL, "example.com") {
+		return "", nil
+	}
+
+	rawURL := baseURL + "/api/v1/skills/" + skillID + "/file?path=" + url.QueryEscape("SKILL.md")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("clawhub skill md returned HTTP %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 512*1024))
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
 }
 
 func (c Connector) InstallSkillOnAIAgent(ctx context.Context, aiAgentURL, token, clawHubURL string, req SkillInstallRequest) (SkillInstallResult, error) {

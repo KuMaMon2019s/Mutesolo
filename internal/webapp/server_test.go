@@ -10,7 +10,7 @@ import (
 
 func TestLLMTestRouteIsRegistered(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "state.json"))
-	server := NewServer(store, "web")
+	server := NewServer(store, "web", nil)
 	request := httptest.NewRequest(http.MethodPost, "/api/llm/test", strings.NewReader(`{"llm":{}}`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
@@ -24,7 +24,7 @@ func TestLLMTestRouteIsRegistered(t *testing.T) {
 
 func TestDocumentParseRouteIsRegistered(t *testing.T) {
 	store := NewStore(filepath.Join(t.TempDir(), "state.json"))
-	server := NewServer(store, "web")
+	server := NewServer(store, "web", nil)
 	request := httptest.NewRequest(http.MethodPost, "/api/documents/parse", strings.NewReader(`{}`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()

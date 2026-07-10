@@ -24,10 +24,11 @@ CREATE TABLE IF NOT EXISTS projects (
 );
 
 CREATE TABLE IF NOT EXISTS branches (
-  id TEXT PRIMARY KEY,
+  id TEXT NOT NULL,
   project_id TEXT NOT NULL,
   name TEXT NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (project_id, id),
   FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
   UNIQUE(project_id, name)
 );
@@ -41,8 +42,11 @@ CREATE TABLE IF NOT EXISTS requirements (
   priority TEXT NOT NULL DEFAULT 'no_priority',
   status TEXT NOT NULL DEFAULT 'draft',
   agent_id TEXT NOT NULL DEFAULT '',
+  assigned_member TEXT NOT NULL DEFAULT '',
   prompt TEXT NOT NULL DEFAULT '',
   commit_id TEXT NOT NULL DEFAULT '',
+  editor_content TEXT NOT NULL DEFAULT '',
+  attachments TEXT NOT NULL DEFAULT '',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
@@ -115,6 +119,40 @@ CREATE TABLE IF NOT EXISTS document_parse_jobs (
   content_list_path TEXT NOT NULL DEFAULT '',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS members (
+  username TEXT PRIMARY KEY,
+  status TEXT NOT NULL DEFAULT 'online',
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS stats (
+  project_id TEXT NOT NULL,
+  branch_id TEXT NOT NULL,
+  member TEXT NOT NULL,
+  status TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (project_id, branch_id, member, status),
+  FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS project_images (
+  project_id TEXT PRIMARY KEY,
+  url TEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS asset_refs (
+  asset_id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  requirement_id TEXT NOT NULL DEFAULT '',
+  storage_key TEXT NOT NULL,
+  url TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
 COMMIT;

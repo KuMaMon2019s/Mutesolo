@@ -11,14 +11,14 @@ interface SettingsCardProps {
 
 export default function SettingsCard({ title, description, children, variant = 'default' }: SettingsCardProps) {
   return (
-    <div className={mergeTW('flex items-center gap-4 p-4', cardVariants[variant])}>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white truncate">{title}</p>
+    <div className={mergeTW('grid grid-cols-[1fr_2fr] items-center gap-4 p-4', cardVariants[variant])}>
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-[#8b95a5] truncate">{title}</p>
         {description && (
-          <p className="text-xs text-zinc-500 mt-0.5 truncate">{description}</p>
+          <p className="text-xs muted mt-0.5 truncate">{description}</p>
         )}
       </div>
-      <div className="shrink-0 w-56">
+      <div className="min-w-0">
         {children}
       </div>
     </div>

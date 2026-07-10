@@ -1,10 +1,15 @@
 package webapp
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type State struct {
-	Config   Config    `json:"config"`
-	Projects []Project `json:"projects"`
+	Config    Config      `json:"config"`
+	Projects  []Project   `json:"projects"`
+	Members   []Member    `json:"members,omitempty"`
+	AssetRefs []AssetRef  `json:"asset_refs,omitempty"`
 }
 
 type Config struct {
@@ -17,7 +22,8 @@ type Config struct {
 	DiscordBotUsername string `json:"discord_bot_username"`
 	GitHubRepo         string `json:"github_repo"`
 	ClawHubBaseURL     string `json:"clawhub_base_url"`
-	LLMAPIKey          string `json:"llm_api_key"`
+	ClawHubAPIKey      string `json:"clawhub_api_key"`
+	OpenCodeAPIKey     string `json:"opencode_api_key"`
 	LLMLocked          bool   `json:"llm_locked"`
 }
 
@@ -27,6 +33,7 @@ type Project struct {
 	Description  string          `json:"description"`
 	Plan         string          `json:"plan"`
 	Docs         string          `json:"docs"`
+	CoverURL     string          `json:"cover_url,omitempty"`
 	Branches     []ProjectBranch `json:"branches"`
 	Requirements []Requirement   `json:"requirements"`
 	CreatedAt    time.Time       `json:"created_at"`
@@ -40,17 +47,20 @@ type ProjectBranch struct {
 }
 
 type Requirement struct {
-	ID          string    `json:"id"`
-	BranchID    string    `json:"branch_id,omitempty"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Priority    string    `json:"priority"`
-	Status      string    `json:"status"`
-	AgentID     string    `json:"agent_id,omitempty"`
-	Prompt      string    `json:"prompt,omitempty"`
-	CommitID    string    `json:"commit_id,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID             string            `json:"id"`
+	BranchID       string            `json:"branch_id,omitempty"`
+	Title          string            `json:"title"`
+	Description    string            `json:"description"`
+	Priority       string            `json:"priority"`
+	Status         string            `json:"status"`
+	AgentID        string            `json:"agent_id,omitempty"`
+	AssignedMember string            `json:"assigned_member,omitempty"`
+	Prompt         string            `json:"prompt,omitempty"`
+	CommitID       string            `json:"commit_id,omitempty"`
+	EditorContent  json.RawMessage   `json:"editor_content,omitempty"`
+	Attachments    json.RawMessage   `json:"attachments,omitempty"`
+	CreatedAt      time.Time         `json:"created_at"`
+	UpdatedAt      time.Time         `json:"updated_at"`
 }
 
 type AIAgentStatus struct {
@@ -91,13 +101,26 @@ type TailscaleDeviceStatus struct {
 }
 
 type SkillSummary struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name,omitempty"`
-	Version      string   `json:"version,omitempty"`
-	Capabilities []string `json:"capabilities,omitempty"`
-	Runtime      string   `json:"runtime,omitempty"`
-	Entrypoint   string   `json:"entrypoint,omitempty"`
-	Description  string   `json:"description,omitempty"`
+	ID           string            `json:"id"`
+	Name         string            `json:"name,omitempty"`
+	Version      string            `json:"version,omitempty"`
+	Capabilities []string          `json:"capabilities,omitempty"`
+	Runtime      string            `json:"runtime,omitempty"`
+	Entrypoint   string            `json:"entrypoint,omitempty"`
+	Description  string            `json:"description,omitempty"`
+	Tags         map[string]string `json:"tags,omitempty"`
+	Stats        *SkillStats       `json:"stats,omitempty"`
+	CreatedAt    int64             `json:"created_at,omitempty"`
+	UpdatedAt    int64             `json:"updated_at,omitempty"`
+}
+
+type SkillStats struct {
+	Comments         int `json:"comments"`
+	Downloads        int `json:"downloads"`
+	InstallsAllTime  int `json:"installsAllTime"`
+	InstallsCurrent  int `json:"installsCurrent"`
+	Stars            int `json:"stars"`
+	Versions         int `json:"versions"`
 }
 
 type SkillInstallRequest struct {
@@ -183,4 +206,41 @@ type BoardUpdate struct {
 	AgentID        string   `json:"agent_id,omitempty"`
 	CommitID       string   `json:"commit_id"`
 	Status         string   `json:"status"`
+}
+
+type MemberStats struct {
+	Username        string            `json:"username"`
+	TaskCount       int               `json:"task_count"`
+	StatusBreakdown map[string]int    `json:"status_breakdown"`
+}
+
+type StatsResponse struct {
+	Members []MemberStats `json:"members"`
+}
+
+// StatsEntry is a row in the stats table.
+type StatsEntry struct {
+	ProjectID string
+	BranchID  string
+	Member    string
+	Status    string
+	Count     int
+}
+
+// Member represents a Discord community member with their online status.
+type Member struct {
+	Username  string `json:"username"`
+	Status    string `json:"status"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+// AssetRef records an uploaded asset (image/file) so it can be tracked
+// and cleaned up when the owning project or requirement is deleted.
+type AssetRef struct {
+	AssetID       string `json:"asset_id"`
+	ProjectID     string `json:"project_id"`
+	RequirementID string `json:"requirement_id,omitempty"`
+	StorageKey    string `json:"storage_key"`
+	URL           string `json:"url"`
+	Source        string `json:"source"`
 }

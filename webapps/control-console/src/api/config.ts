@@ -10,7 +10,8 @@ export interface Config {
   discord_guild_id: string;
   discord_bot_username: string;
   clawhub_base_url: string;
-  llm_api_key: string;
+  clawhub_api_key: string;
+  opencode_api_key: string;
   llm_locked: boolean;
 }
 

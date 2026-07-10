@@ -75,9 +75,11 @@ function sanitizeAttachments(attachments: Attachment[]): ExportedAttachment[] {
   return attachments.filter((attachment) => Boolean(attachment.url));
 }
 
-async function uploadAsset(file: File): Promise<Attachment> {
+async function uploadAsset(file: File, projectId: string, requirementId: string): Promise<Attachment> {
   const body = new FormData();
   body.append("file", file);
+  if (projectId) body.append("project_id", projectId);
+  if (requirementId) body.append("requirement_id", requirementId);
   const response = await fetch("/api/assets", {
     method: "POST",
     body
@@ -142,13 +144,26 @@ export function RequirementEditor() {
   const isEmbedded = new URLSearchParams(search).get("embed") === "1";
   const draftKey = useMemo(() => draftKeyFromSearch(search || defaultDraftKey), [search]);
   const starterBlocks = useMemo(() => starterBlocksFromSearch(search), [search]);
+
+  // Extract project/requirement IDs for asset tracking.
+  const params = useMemo(() => new URLSearchParams(search), [search]);
+  const projectId = params.get("project") || "";
+  const requirementId = params.get("requirement") || "";
+
+  // In embedded mode, add class to html/body so CSS height:100% chain works
+  useEffect(() => {
+    if (isEmbedded) {
+      document.documentElement.classList.add("embedded");
+      return () => document.documentElement.classList.remove("embedded");
+    }
+  }, [isEmbedded]);
   const draft = useMemo(() => readDraft(draftKey), [draftKey]);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [tencentDocs, setTencentDocs] = useState<TencentDoc[]>(draft.tencentDocs?.length ? draft.tencentDocs : [emptyTencentDoc()]);
   const [attachments, setAttachments] = useState<Attachment[]>(draft.attachments || []);
 
   const uploadFile = useCallback(async (file: File) => {
-    const attachment = await uploadAsset(file);
+    const attachment = await uploadAsset(file, projectId, requirementId);
     setAttachments((current) => [...current, attachment]);
     return {
       props: {
@@ -156,7 +171,7 @@ export function RequirementEditor() {
         name: attachment.name
       }
     };
-  }, []);
+  }, [projectId, requirementId]);
 
   const editor = useCreateBlockNote(
     {

@@ -6,27 +6,33 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
+
+	"Mutesolo/internal/storage"
 )
 
 type Server struct {
-	store     Repository
-	connector Connector
-	staticDir string
+	store      Repository
+	connector  Connector
+	staticDir  string
+	minio      *storage.Client
 }
 
-func NewServer(store Repository, staticDir string) Server {
+func NewServer(store Repository, staticDir string, minioClient *storage.Client) Server {
 	return Server{
-		store:     store,
-		connector: NewConnector(),
-		staticDir: staticDir,
+		store:      store,
+		connector:  NewConnector(),
+		staticDir:  staticDir,
+		minio:      minioClient,
 	}
 }
 
@@ -39,6 +45,9 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/api/state", s.handleState)
 	mux.HandleFunc("/api/config", s.handleConfig)
 	mux.HandleFunc("/api/ai-agent/status", s.handleAIAgentStatus)
+	mux.HandleFunc("/api/ai-agent/screenshot-members", s.handleAIAgentScreenshotMembers)
+	mux.HandleFunc("/api/members", s.handleMembers)
+	mux.HandleFunc("/api/stats", s.handleStats)
 	mux.HandleFunc("/api/discord/members", s.handleDiscordMembers)
 	mux.HandleFunc("/api/tailscale/devices", s.handleTailscaleDevices)
 	mux.HandleFunc("/api/clawhub/skills", s.handleClawHubSkills)
@@ -123,6 +132,24 @@ func (s Server) handleAssets(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
+
+	// Track asset ref if project_id is provided.
+	projectID := strings.TrimSpace(r.FormValue("project_id"))
+	requirementID := strings.TrimSpace(r.FormValue("requirement_id"))
+	if projectID != "" {
+		ref := AssetRef{
+			AssetID:       result.ID,
+			ProjectID:     projectID,
+			RequirementID: requirementID,
+			StorageKey:    result.StorageKey,
+			URL:           result.URL,
+			Source:        result.Source,
+		}
+		if err := s.saveAssetRef(ref); err != nil {
+			log.Printf("save asset ref %s: %v", result.ID, err)
+		}
+	}
+
 	writeJSON(w, result)
 }
 
@@ -142,6 +169,10 @@ func (s Server) handleClawHubSkillActions(w http.ResponseWriter, r *http.Request
 		s.handleClawHubSkillInstall(w, r, skillID)
 		return
 	}
+	if len(parts) == 2 && parts[1] == "cover" && r.Method == http.MethodGet {
+		s.handleClawHubSkillCover(w, r, skillID)
+		return
+	}
 	writeError(w, http.StatusNotFound, "unknown skill action")
 }
 
@@ -156,7 +187,17 @@ func (s Server) handleClawHubSkillDetail(w http.ResponseWriter, r *http.Request,
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
-	writeJSON(w, skill)
+	markdown, _ := s.connector.GetClawHubSkillMarkdown(r.Context(), state.Config.ClawHubBaseURL, skillID)
+	files, _ := s.connector.GetClawHubSkillFiles(r.Context(), state.Config.ClawHubBaseURL, skillID)
+	writeJSON(w, struct {
+		SkillSummary
+		Markdown string               `json:"markdown,omitempty"`
+		Files    []ClawHubSkillFile `json:"files,omitempty"`
+	}{
+		SkillSummary: skill,
+		Markdown:     markdown,
+		Files:        files,
+	})
 }
 
 func (s Server) handleClawHubSkillInstall(w http.ResponseWriter, r *http.Request, skillID string) {
@@ -177,6 +218,97 @@ func (s Server) handleClawHubSkillInstall(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeJSON(w, result)
+}
+
+func (s Server) handleClawHubSkillCover(w http.ResponseWriter, r *http.Request, skillID string) {
+	state, err := s.store.Load()
+	if err != nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	baseURL := strings.TrimRight(strings.TrimSpace(state.Config.ClawHubBaseURL), "/")
+	if baseURL == "" || strings.Contains(baseURL, "example.com") {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Step 1: Get skill detail from ClawHub to find SKILL.md file
+	detailURL := baseURL + "/api/v1/skills/" + skillID
+	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, detailURL, nil)
+	if err != nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	var detail struct {
+		LatestVersion struct {
+			Files []struct {
+				Path string `json:"path"`
+			} `json:"files"`
+		} `json:"latestVersion"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&detail); err != nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Step 2: Find SKILL.md in files
+	skillMDPath := ""
+	for _, f := range detail.LatestVersion.Files {
+		if f.Path == "SKILL.md" || strings.HasSuffix(f.Path, "/SKILL.md") {
+			skillMDPath = f.Path
+			break
+		}
+	}
+	if skillMDPath == "" {
+		// No SKILL.md found
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Step 3: Download SKILL.md content
+	rawURL := baseURL + "/api/v1/skills/" + skillID + "/files/" + skillMDPath
+	req2, err := http.NewRequestWithContext(r.Context(), http.MethodGet, rawURL, nil)
+	if err != nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	resp2, err := http.DefaultClient.Do(req2)
+	if err != nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	defer resp2.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp2.Body, 512*1024))
+	if err != nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	// Step 4: Parse first image URL from SKILL.md
+	// Match markdown image syntax: ![alt](url)
+	content := string(body)
+	imageRe := regexp.MustCompile(`!\[.*?\]\((https?://[^\)]+)\)`)
+	matches := imageRe.FindStringSubmatch(content)
+	if len(matches) > 1 {
+		http.Redirect(w, r, matches[1], http.StatusFound)
+		return
+	}
+
+	// No image found in SKILL.md
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s Server) handlePluginRuntimes(w http.ResponseWriter, r *http.Request) {
@@ -238,7 +370,8 @@ func (s Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		mergeString(&state.Config.DiscordGuildID, "discord_guild_id")
 		mergeString(&state.Config.DiscordBotUsername, "discord_bot_username")
 		mergeString(&state.Config.ClawHubBaseURL, "clawhub_base_url")
-		mergeString(&state.Config.LLMAPIKey, "llm_api_key")
+		mergeString(&state.Config.ClawHubAPIKey, "clawhub_api_key")
+		mergeString(&state.Config.OpenCodeAPIKey, "opencode_api_key")
 		mergeBool(&state.Config.LLMLocked, "llm_locked")
 		if err := s.store.Save(state); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
@@ -257,6 +390,61 @@ func (s Server) handleAIAgentStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, s.connector.CheckAIAgent(r.Context(), state.Config.DiscordGuildID, state.Config.DiscordBotUsername))
+}
+
+func (s Server) handleAIAgentScreenshotMembers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	state, err := s.store.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	widgetURL := strings.TrimSpace(state.Config.DiscordWidgetURL)
+	if widgetURL == "" {
+		// Fallback: construct widget URL from guild ID.
+		guildID := strings.TrimSpace(state.Config.DiscordGuildID)
+		if guildID == "" {
+			writeJSON(w, ScreenshotResult{Error: "discord widget URL or guild ID not configured"})
+			return
+		}
+		widgetURL = fmt.Sprintf("https://discord.com/widget?id=%s&theme=dark", guildID)
+	}
+	// Extract real URL from iframe HTML if needed.
+	widgetURL = extractIframeSrc(widgetURL)
+	result := GetCachedMembers(r.Context(), widgetURL)
+
+	// Persist members to Repository so other pages can pick them up.
+	if len(result.Members) > 0 {
+		members := make([]Member, len(result.Members))
+		for i, sm := range result.Members {
+			members[i] = Member{
+				Username: sm.Username,
+				Status:   sm.Status,
+			}
+		}
+		if err := s.store.SaveMembers(members); err != nil {
+			// Log but don't fail the request — cache is still served.
+			fmt.Printf("save members to store: %v\n", err)
+		}
+	}
+
+	writeJSON(w, result)
+}
+
+func (s Server) handleMembers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	members, err := s.store.LoadMembers()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"members": members})
 }
 
 func (s Server) handleDiscordMembers(w http.ResponseWriter, r *http.Request) {
@@ -293,7 +481,7 @@ func (s Server) handleClawHubSkills(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	skills, err := s.connector.ListClawHubSkills(r.Context(), state.Config.ClawHubBaseURL)
+	skills, err := s.connector.ListClawHubSkills(r.Context(), state.Config.ClawHubBaseURL, state.Config.ClawHubAPIKey)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
@@ -325,20 +513,161 @@ func (s Server) handleProjects(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+
+		// Upload cover image in background (non-blocking).
+		go s.uploadCoverForProject(project.ID)
+
 		writeJSON(w, project)
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
 }
 
+// uploadCoverForProject downloads a random picsum image and uploads it to MinIO.
+func (s Server) uploadCoverForProject(projectID string) {
+	if s.minio == nil {
+		return
+	}
+	imageURL := picSumCoverURL(projectID)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	data, contentType, err := storage.DownloadImage(ctx, imageURL)
+	if err != nil {
+		log.Printf("download cover for %s: %v", projectID, err)
+		return
+	}
+	url, err := s.minio.UploadImage(ctx, projectID, data, contentType)
+	if err != nil {
+		log.Printf("upload cover for %s: %v", projectID, err)
+		return
+	}
+	// Save to project_images table if the store is SQLite.
+	if ss, ok := s.store.(*SQLiteStore); ok {
+		if err := ss.SaveProjectImage(projectID, url); err != nil {
+			log.Printf("save project_image for %s: %v", projectID, err)
+		}
+	}
+}
+
+// picSumCoverURL generates the old-style picsum URL for a project ID.
+func picSumCoverURL(projectID string) string {
+	var hash uint32
+	for _, c := range projectID {
+		hash = (hash*31 + uint32(c))
+	}
+	return fmt.Sprintf("https://picsum.photos/seed/%d/400/%d", hash%1000, 200+(hash%200))
+}
+
+// handleProjectImage serves the cover image URL (or redirects) for a project.
+func (s Server) handleProjectImage(w http.ResponseWriter, r *http.Request, projectID string) {
+	// Try SQLite store first.
+	if ss, ok := s.store.(*SQLiteStore); ok {
+		url, found, err := ss.GetProjectImageURL(projectID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if found {
+			writeJSON(w, map[string]string{"url": url})
+			return
+		}
+	}
+	// For JSON store (or fallback), check project's CoverURL field.
+	if state, err := s.store.Load(); err == nil {
+		for _, p := range state.Projects {
+			if p.ID == projectID {
+				// Generate presigned URL (valid 10 minutes) and redirect.
+				if s.minio != nil {
+					ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+					presigned, err := s.minio.PresignedGetURL(ctx, projectID, 10*time.Minute)
+					cancel()
+					if err == nil {
+						http.Redirect(w, r, presigned, http.StatusFound)
+						return
+					}
+				}
+				// Fallback: picsum
+				http.Redirect(w, r, picSumCoverURL(projectID), http.StatusFound)
+				return
+			}
+		}
+	}
+	// Fallback: generate picsum URL.
+	writeJSON(w, map[string]string{"url": picSumCoverURL(projectID)})
+}
+
+// handleProjectDelete removes a project from state and cleans up MinIO + assets.
+func (s Server) handleProjectDelete(w http.ResponseWriter, r *http.Request, projectID string) {
+	state, err := s.store.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Collect asset refs for cleanup before removing the project.
+	assetRefs, _ := s.getAssetRefsByProject(projectID)
+
+	// Find and remove the project.
+	found := false
+	filtered := make([]Project, 0, len(state.Projects))
+	for _, p := range state.Projects {
+		if p.ID == projectID {
+			found = true
+			// Delete cover image from MinIO in background.
+			if s.minio != nil {
+				go func() {
+					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+					defer cancel()
+					if err := s.minio.DeleteImage(ctx, projectID); err != nil {
+						log.Printf("minio delete image for %s: %v", projectID, err)
+					}
+				}()
+			}
+			continue
+		}
+		filtered = append(filtered, p)
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	state.Projects = filtered
+	if err := s.store.Save(state); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Clean up asset refs from MinIO and store.
+	s.deleteAssetRefsAndMinIO(assetRefs, projectID, "")
+
+	writeJSON(w, map[string]string{"status": "deleted", "project_id": projectID})
+}
+
 func (s Server) handleProjectActions(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/projects/")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) < 2 {
+	if len(parts) == 0 || parts[0] == "" {
 		writeError(w, http.StatusNotFound, "unknown project action")
 		return
 	}
 	projectID := parts[0]
+
+	// DELETE /api/projects/{id}
+	if len(parts) == 1 && r.Method == http.MethodDelete {
+		s.handleProjectDelete(w, r, projectID)
+		return
+	}
+
+	// GET /api/projects/{id}/image
+	if len(parts) == 2 && parts[1] == "image" && r.Method == http.MethodGet {
+		s.handleProjectImage(w, r, projectID)
+		return
+	}
+
+	if len(parts) < 2 {
+		writeError(w, http.StatusNotFound, "unknown project action")
+		return
+	}
 	action := parts[1]
 	switch action {
 	case "branches":
@@ -421,10 +750,17 @@ func (s Server) handleRequirements(w http.ResponseWriter, r *http.Request, proje
 }
 
 func (s Server) handleRequirementDetail(w http.ResponseWriter, r *http.Request, projectID string, reqID string) {
-	if r.Method != http.MethodPut {
+	switch r.Method {
+	case http.MethodPut:
+		s.handleRequirementUpdate(w, r, projectID, reqID)
+	case http.MethodDelete:
+		s.handleRequirementDelete(w, r, projectID, reqID)
+	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
 	}
+}
+
+func (s Server) handleRequirementUpdate(w http.ResponseWriter, r *http.Request, projectID string, reqID string) {
 	var input Requirement
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -449,6 +785,51 @@ func (s Server) handleRequirementDetail(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	writeJSON(w, req)
+}
+
+func (s Server) handleRequirementDelete(w http.ResponseWriter, r *http.Request, projectID string, reqID string) {
+	state, err := s.store.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Collect asset refs for cleanup before removing.
+	assetRefs, _ := s.getAssetRefsByRequirement(projectID, reqID)
+
+	found := false
+	for pi := range state.Projects {
+		if state.Projects[pi].ID != projectID {
+			continue
+		}
+		filtered := make([]Requirement, 0, len(state.Projects[pi].Requirements))
+		for _, r := range state.Projects[pi].Requirements {
+			if r.ID == reqID {
+				found = true
+				continue
+			}
+			filtered = append(filtered, r)
+		}
+		if !found {
+			break
+		}
+		state.Projects[pi].Requirements = filtered
+		state.Projects[pi].UpdatedAt = time.Now().UTC()
+		break
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, "requirement not found")
+		return
+	}
+	if err := s.store.Save(state); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Clean up asset refs from MinIO and store.
+	s.deleteAssetRefsAndMinIO(assetRefs, projectID, reqID)
+
+	writeJSON(w, map[string]string{"status": "deleted", "requirement_id": reqID})
 }
 
 func (s Server) handlePrompt(w http.ResponseWriter, r *http.Request, projectID string) {
@@ -581,6 +962,8 @@ func (s Server) handleBoardUpdate(w http.ResponseWriter, r *http.Request, projec
 		writeError(w, http.StatusNotFound, "project not found")
 		return
 	}
+	log.Printf("[board-update] project=%s ids=%v branch=%q status=%q -> updated=%d",
+		projectID, input.RequirementIDs, input.BranchID, input.Status, len(updated))
 	if err := s.store.Save(state); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -633,6 +1016,23 @@ func (s Server) handleLLMTest(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s Server) handleStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	projectID := r.URL.Query().Get("project_id")
+	branchID := r.URL.Query().Get("branch_id")
+
+	stats, err := s.store.LoadStats(projectID, branchID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, stats)
+}
+
 func (s Server) handleGitHubPush(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -659,6 +1059,122 @@ func runGit(args ...string) error {
 		return errors.New("working tree has uncommitted changes; commit before pushing")
 	}
 	return nil
+}
+
+// ---------------------------------------------------------------------------
+// Asset Ref helpers – dispatch to SQLite or JSON store
+// ---------------------------------------------------------------------------
+
+func (s Server) saveAssetRef(ref AssetRef) error {
+	if ss, ok := s.store.(*SQLiteStore); ok {
+		return ss.SaveAssetRef(ref)
+	}
+	// JSON store: add to State.AssetRefs.
+	state, err := s.store.Load()
+	if err != nil {
+		return err
+	}
+	state.AssetRefs = append(state.AssetRefs, ref)
+	return s.store.Save(state)
+}
+
+func (s Server) getAssetRefsByProject(projectID string) ([]AssetRef, error) {
+	if ss, ok := s.store.(*SQLiteStore); ok {
+		return ss.GetAssetRefsByProject(projectID)
+	}
+	state, err := s.store.Load()
+	if err != nil {
+		return nil, err
+	}
+	var refs []AssetRef
+	for _, r := range state.AssetRefs {
+		if r.ProjectID == projectID {
+			refs = append(refs, r)
+		}
+	}
+	return refs, nil
+}
+
+func (s Server) getAssetRefsByRequirement(projectID, requirementID string) ([]AssetRef, error) {
+	if ss, ok := s.store.(*SQLiteStore); ok {
+		return ss.GetAssetRefsByRequirement(projectID, requirementID)
+	}
+	state, err := s.store.Load()
+	if err != nil {
+		return nil, err
+	}
+	var refs []AssetRef
+	for _, r := range state.AssetRefs {
+		if r.ProjectID == projectID && r.RequirementID == requirementID {
+			refs = append(refs, r)
+		}
+	}
+	return refs, nil
+}
+
+// deleteAssetRefsAndMinIO deletes asset refs from the store and cleans up
+// MinIO + local files for each referenced asset.
+func (s Server) deleteAssetRefsAndMinIO(refs []AssetRef, projectID, requirementID string) {
+	if len(refs) == 0 {
+		return
+	}
+	storage := AssetStorageFromEnv()
+	for _, ref := range refs {
+		go func(key string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := storage.Delete(ctx, key); err != nil {
+				log.Printf("minio delete asset %s: %v", key, err)
+			}
+		}(ref.StorageKey)
+	}
+
+	// Remove from store.
+	if requirementID != "" {
+		if err := s.deleteAssetRefsByRequirement(projectID, requirementID); err != nil {
+			log.Printf("delete asset refs for requirement %s/%s: %v", projectID, requirementID, err)
+		}
+	} else {
+		if err := s.deleteAssetRefsByProject(projectID); err != nil {
+			log.Printf("delete asset refs for project %s: %v", projectID, err)
+		}
+	}
+}
+
+func (s Server) deleteAssetRefsByProject(projectID string) error {
+	if ss, ok := s.store.(*SQLiteStore); ok {
+		return ss.DeleteAssetRefsByProject(projectID)
+	}
+	state, err := s.store.Load()
+	if err != nil {
+		return err
+	}
+	filtered := make([]AssetRef, 0, len(state.AssetRefs))
+	for _, r := range state.AssetRefs {
+		if r.ProjectID != projectID {
+			filtered = append(filtered, r)
+		}
+	}
+	state.AssetRefs = filtered
+	return s.store.Save(state)
+}
+
+func (s Server) deleteAssetRefsByRequirement(projectID, requirementID string) error {
+	if ss, ok := s.store.(*SQLiteStore); ok {
+		return ss.DeleteAssetRefsByRequirement(projectID, requirementID)
+	}
+	state, err := s.store.Load()
+	if err != nil {
+		return err
+	}
+	filtered := make([]AssetRef, 0, len(state.AssetRefs))
+	for _, r := range state.AssetRefs {
+		if !(r.ProjectID == projectID && r.RequirementID == requirementID) {
+			filtered = append(filtered, r)
+		}
+	}
+	state.AssetRefs = filtered
+	return s.store.Save(state)
 }
 
 func writeJSON(w http.ResponseWriter, value any) {

@@ -9,4 +9,16 @@ type Repository interface {
 
 	// Save writes the full web state back to the underlying store.
 	Save(state State) error
+
+	// SaveMembers persists the full member list.
+	SaveMembers(members []Member) error
+
+	// LoadMembers reads the persisted member list.
+	LoadMembers() ([]Member, error)
+
+	// LoadStats returns pre-built member statistics, optionally filtered by project/branch.
+	LoadStats(projectID, branchID string) (StatsResponse, error)
+
+	// RebuildStats recomputes the stats table from the current state.
+	RebuildStats(state State) error
 }

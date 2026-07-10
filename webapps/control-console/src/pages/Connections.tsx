@@ -13,8 +13,9 @@ import TextInput from '../components/TextInput';
 import Toggle from '../components/Toggle';
 import { buttonVariants } from '../variants';
 import mergeTW from '../utils/mergeTW';
+import { toast } from '../components/toastStore';
 import { fetchConfig, saveConfig, type Config } from '../api/config';
-import { fetchAIAgentStatus, fetchDiscordMembers } from '../api/projects';
+import { fetchAIAgentStatus, fetchDiscordMembers, fetchAIAgentScreenshotMembers } from '../api/projects';
 
 interface Props { ctx: AppContextType }
 
@@ -28,7 +29,8 @@ const emptyConfig: Config = {
   discord_guild_id: '',
   discord_bot_username: '',
   clawhub_base_url: '',
-  llm_api_key: '',
+  clawhub_api_key: '',
+  opencode_api_key: '',
   llm_locked: false,
 };
 
@@ -51,6 +53,8 @@ export default function Connections({ ctx: _ctx }: Props) {
   const [error, setError] = useState('');
   const [aiAgentStatus, setAiAgentStatus] = useState<{ online: boolean; name?: string; presence_count?: number; error?: string } | null>(null);
   const [discordMembers, setDiscordMembers] = useState<Array<{ username: string; status: string; avatar_url?: string }>>([]);
+  const [screenshotMembers, setScreenshotMembers] = useState<Array<{ username: string; status: string }>>([]);
+  const [screenshotLoading, setScreenshotLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
@@ -64,6 +68,10 @@ export default function Connections({ ctx: _ctx }: Props) {
     fetchDiscordMembers().then(data => {
       setDiscordMembers((data.members || []).filter(m => m.username.toLowerCase() !== 'doraemon'));
     }).catch(() => {});
+    setScreenshotLoading(true);
+    fetchAIAgentScreenshotMembers().then(data => {
+      setScreenshotMembers((data.members || []).filter(m => m.username.toLowerCase() !== 'doraemon'));
+    }).catch(() => {}).finally(() => setScreenshotLoading(false));
   }, []);
 
   const update = useCallback((field: keyof Config, value: string | boolean) => {
@@ -87,7 +95,7 @@ export default function Connections({ ctx: _ctx }: Props) {
 
   const openDrawer = () => {
     if (!config.discord_widget_url) {
-      alert('Discord widget URL not configured in Connections');
+      toast('warning', 'Discord widget URL not configured in Connections');
       return;
     }
     setDrawerOpen(true);
@@ -98,13 +106,13 @@ export default function Connections({ ctx: _ctx }: Props) {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-xl font-semibold text-white">Connections</h1>
-            <p className="text-sm text-zinc-500 mt-1">Configure external service integrations</p>
+            <h1 className="text-xl font-semibold text-[#f2f5f8]">Connections</h1>
+            <p className="muted">Configure external service integrations</p>
           </div>
           <button
             onClick={handleSave}
             disabled={!dirty || saving}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150"
+            className={mergeTW(buttonVariants.default, "disabled:cursor-not-allowed")}
           >
             {saving ? 'Saving...' : 'Save changes'}
           </button>
@@ -153,11 +161,14 @@ export default function Connections({ ctx: _ctx }: Props) {
           <SettingsCard title="Private URL" description="ClawHub private instance URL">
             <TextInput value={config.clawhub_base_url} onChange={v => update('clawhub_base_url', v)} placeholder="https://..." />
           </SettingsCard>
+          <SettingsCard title="API Key" description="ClawHub API key for authentication">
+            <TextInput value={config.clawhub_api_key} onChange={v => update('clawhub_api_key', v)} type="password" placeholder="clh_..." />
+          </SettingsCard>
         </SettingsSection>
 
         <SettingsSection icon={<KeyIcon className="w-4 h-4" />} title="LLM">
-          <SettingsCard title="API Key" description="LLM provider API key">
-            <TextInput value={config.llm_api_key} onChange={v => update('llm_api_key', v)} type="password" placeholder="API key" />
+          <SettingsCard title="API Key" description="OpenCode API key for prompt generation">
+            <TextInput value={config.opencode_api_key} onChange={v => update('opencode_api_key', v)} type="password" placeholder="opencode_..." />
           </SettingsCard>
           <SettingsCard title="Locked" description="Prevent accidental edits to LLM config">
             <div className="flex justify-end">
@@ -166,99 +177,153 @@ export default function Connections({ ctx: _ctx }: Props) {
           </SettingsCard>
         </SettingsSection>
 
-        {/* Status panels — old UI style */}
-        <div className="statusGrid" style={{ marginTop: '16px' }}>
-          <div className="panel">
-            <h2>AI Agent</h2>
-            <div className="statusLine">
-              <span className={`dot ${aiAgentStatus?.online ? 'ok' : 'bad'}`} />
-              <strong>{aiAgentStatus?.online ? 'AI Agent online' : 'AI Agent offline'}</strong>
+        {/* AI Agent Members — Team members card style */}
+        <div className="mt-8">
+          <div className="items-start justify-between sm:flex mb-6">
+            <div>
+              <h4 className="text-[#f2f5f8] text-lg font-semibold">AI Agent Members</h4>
+              <p className="mt-2 text-[#8b95a5] text-sm">
+                Members detected from the Discord widget via headless screenshot.
+              </p>
             </div>
-            <p className="muted" style={{ color: '#d8dee8' }}>
-              {aiAgentStatus?.online
-                ? `${aiAgentStatus.name || 'agent'} · ${aiAgentStatus.presence_count || 0} online`
-                : aiAgentStatus?.error || 'not reachable'}
-            </p>
-          </div>
-          <div className="panel">
-            <h2>Discord Widget</h2>
-            <button className={mergeTW(buttonVariants.primary)} type="button" onClick={openDrawer}>Open Discord</button>
+            <button
+              className={mergeTW(buttonVariants.secondary, "mt-2 sm:mt-0")}
+              disabled={screenshotLoading}
+              onClick={async () => {
+                setScreenshotLoading(true);
+                try {
+                  const data = await fetchAIAgentScreenshotMembers();
+                  setScreenshotMembers((data.members || []).filter(m => m.username.toLowerCase() !== 'doraemon'));
+                } catch { /* ignore */ }
+                finally { setScreenshotLoading(false); }
+              }}
+            >
+              {screenshotLoading ? 'Refreshing...' : 'Refresh'}
+            </button>
           </div>
 
-          {/* AI Agent Strip */}
-          <div className="aiAgentStrip panel" style={{ gridColumn: '1 / -1' }}>
-            {discordMembers.length === 0 ? (
-              <span className="empty" style={{ color: '#d8dee8' }}>No Discord members online</span>
-            ) : (
-              <>
-                <span className="stripLabel">AI Agent</span>
-                <div className="aiAgentAvatars">
-                  {discordMembers.map(member => (
+          {/* Status indicator */}
+          <div className="flex items-center gap-3 mb-6 px-4 py-3 rounded-lg bg-white/5 border border-white/10">
+            <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${aiAgentStatus?.online ? 'bg-[#4dc89a]' : 'bg-[#ff8b66]'}`} />
+            <span className="text-[#f2f5f8] text-sm font-medium">
+              {aiAgentStatus?.online ? 'AI Agent online' : 'AI Agent offline'}
+            </span>
+            {aiAgentStatus?.online && (
+              <span className="text-[#8b95a5] text-xs ml-auto">
+                {aiAgentStatus.name || 'agent'} · {aiAgentStatus.presence_count || 0} online
+              </span>
+            )}
+            {!aiAgentStatus?.online && aiAgentStatus?.error && (
+              <span className="text-[#8b95a5] text-xs ml-auto">{aiAgentStatus.error}</span>
+            )}
+          </div>
+
+          {screenshotMembers.length === 0 ? (
+            <div className="px-4 py-8 text-center text-[#8b95a5] text-sm border border-dashed border-white/10 rounded-xl">
+              {screenshotLoading
+                ? 'Capturing Discord widget...'
+                : 'No AI Agent members detected. Ensure Discord Widget URL or Guild ID is configured in Connections settings above.'}
+            </div>
+          ) : (
+            <ul className="divide-y divide-white/5 border border-white/10 rounded-xl bg-white/[0.03]">
+              {screenshotMembers.map((member, idx) => (
+                <li key={idx} className="px-5 py-4 flex items-start justify-between">
+                  <div className="flex gap-3 items-center">
+                    {/* Avatar circle */}
                     <div
-                      key={member.username}
-                      className={`aiAgentAvatar ${member.status === 'online' ? 'online' : 'offline'}`}
-                      style={{ '--avatar-bg': avatarColor(member.username) } as React.CSSProperties}
-                      title={`${member.username} · ${member.status}`}
+                      className="flex-none w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                      style={{ backgroundColor: avatarColor(member.username) }}
                     >
-                      {member.avatar_url
-                        ? <img className="avatarImg" src={member.avatar_url} alt={member.username} />
-                        : <span className="avatarFace">{avatarText(member.username)}</span>
-                      }
-                      <span className="presenceDot" />
-                      <span className="avatarName">{member.username}</span>
+                      {avatarText(member.username)}
                     </div>
-                  ))}
-                </div>
-              </>
+                    <div>
+                      <span className="block text-sm text-[#f2f5f8] font-semibold">{member.username}</span>
+                      <span className="block text-xs text-[#8b95a5] capitalize">{member.status}</span>
+                    </div>
+                  </div>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                    ${member.status === 'online' ? 'bg-[#4dc89a]/20 text-[#4dc89a]' :
+                      member.status === 'idle' ? 'bg-[#f1bd6c]/20 text-[#f1bd6c]' :
+                      member.status === 'dnd' ? 'bg-[#ff8b66]/20 text-[#ff8b66]' :
+                      'bg-white/10 text-[#8b95a5]'}`}
+                  >
+                    {member.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Discord Widget quick panel */}
+          <div className="mt-6 p-4 rounded-xl bg-white/5 border border-white/10">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-[#f2f5f8] text-sm font-semibold">Discord Widget</h4>
+                <p className="text-[#8b95a5] text-xs mt-1">
+                  {discordMembers.length > 0 ? `${discordMembers.length} members from widget API` : 'View the Discord server widget'}
+                </p>
+              </div>
+              <button
+                className={mergeTW(buttonVariants.secondary)}
+                type="button"
+                onClick={openDrawer}
+              >
+                Open Widget
+              </button>
+            </div>
+            {discordMembers.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {discordMembers.slice(0, 8).map(member => (
+                  <div
+                    key={member.username}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 text-xs text-[#f2f5f8]"
+                    title={`${member.username} · ${member.status}`}
+                  >
+                    <div
+                      className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+                      style={{ backgroundColor: avatarColor(member.username) }}
+                    >
+                      {avatarText(member.username)}
+                    </div>
+                    {member.username}
+                  </div>
+                ))}
+                {discordMembers.length > 8 && (
+                  <span className="text-xs text-[#8b95a5] self-center">+{discordMembers.length - 8} more</span>
+                )}
+              </div>
             )}
           </div>
         </div>
-
-        {/* Widget Preview */}
-        {config.discord_widget_url && (
-          <section style={{ marginTop: '24px' }}>
-            <div className="flex items-center gap-2 mb-3 px-1">
-              <span className="text-white">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m2.047 5.25.899 11.291a1.5 1.5 0 0 0 1.493 1.21h15.122a1.5 1.5 0 0 0 1.493-1.21l.899-11.291A1.5 1.5 0 0 0 20.46 4H3.54a1.5 1.5 0 0 0-1.493 1.25ZM9 10h.01M15 10h.01M9.5 15a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5Z" />
-                </svg>
-              </span>
-              <h2 className="text-sm font-semibold text-white uppercase tracking-wider">Widget Preview</h2>
-            </div>
-            <div className="rounded-xl bg-zinc-900 border border-zinc-700/60 p-5">
-              {config.discord_widget_url.includes('<iframe') || config.discord_widget_url.includes('<') ? (
-                <div
-                  className="rounded-lg overflow-hidden bg-zinc-950"
-                  dangerouslySetInnerHTML={{ __html: config.discord_widget_url }}
-                />
-              ) : (
-                <iframe
-                  src={config.discord_widget_url}
-                  title="Discord Widget"
-                  className="w-full h-[500px] rounded-lg border-0"
-                />
-              )}
-            </div>
-          </section>
-        )}
       </div>
 
-      {/* Discord Drawer */}
-      <div
-        className={`discordDrawerOverlay ${drawerOpen ? 'open' : ''}`}
-        onClick={() => setDrawerOpen(false)}
-      />
-      <aside className={`discordDrawer ${drawerOpen ? 'open' : ''}`}>
-        <div className="discordDrawerHead">
-          <h3>Discord Widget</h3>
-          <button className="discordDrawerClose" type="button" onClick={() => setDrawerOpen(false)}>×</button>
-        </div>
-        <iframe
-          title="Discord server widget"
-          sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-          src={drawerOpen ? config.discord_widget_url : undefined}
-        />
-      </aside>
+      {/* Discord Drawer — only render when open */}
+      {drawerOpen && (
+        <>
+          <div
+            className="discordDrawerOverlay open"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <aside className="discordDrawer open">
+            <div className="discordDrawerHead">
+              <h3>Discord Widget</h3>
+              <button className="discordDrawerClose" type="button" onClick={() => setDrawerOpen(false)}>×</button>
+            </div>
+            {config.discord_widget_url.includes('<iframe') || config.discord_widget_url.includes('<') ? (
+              <div
+                className="w-full h-full"
+                dangerouslySetInnerHTML={{ __html: config.discord_widget_url }}
+              />
+            ) : (
+              <iframe
+                title="Discord server widget"
+                sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+                src={config.discord_widget_url}
+              />
+            )}
+          </aside>
+        </>
+      )}
     </section>
   );
 }

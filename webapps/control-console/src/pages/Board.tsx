@@ -1,10 +1,25 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { AppContextType } from '../App';
-import { createBranch, createRequirement, updateBoard } from '../api/projects';
+import { createBranch, createRequirement, updateBoard, fetchAIAgentScreenshotMembers, fetchStats } from '../api/projects';
 import { buttonVariants } from '../variants';
 import mergeTW from '../utils/mergeTW';
+import { toast } from '../components/toastStore';
+
+function avatarText(name: string) {
+  const compact = String(name || 'AI').replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '');
+  return compact.slice(0, 2).toUpperCase() || 'AI';
+}
+
+function avatarColor(value: string) {
+  const palette = ['#5b8def', '#4dc89a', '#f1bd6c', '#e989d8', '#ff8b66', '#7c8cff', '#44b4a6'];
+  let hash = 0;
+  for (const char of String(value || 'ai-agent')) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return palette[hash % palette.length];
+}
 
 interface Props { ctx: AppContextType }
+
+type MemberStatsData = { username: string; task_count: number; status_breakdown: Record<string, number> };
 
 export default function Board({ ctx }: Props) {
   const project = ctx.currentProject();
@@ -26,13 +41,17 @@ export default function Board({ ctx }: Props) {
   const [reqPriority, setReqPriority] = useState('low');
   const [reqDescription, setReqDescription] = useState('');
   const [reqStatus, setReqStatus] = useState('draft');
+  const [reqAssignedMember, setReqAssignedMember] = useState('');
+  const [agentMembers, setAgentMembers] = useState<Array<{ username: string; status: string }>>([]);
+  const [memberStats, setMemberStats] = useState<MemberStatsData[]>([]);
+  const [moveTargetBranch, setMoveTargetBranch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const columns = [
-    { id: 'draft', title: 'BACKLOG', color: 'low' },
-    { id: 'sent', title: 'TO DO', color: 'medium' },
-    { id: 'in_progress', title: 'IN PROGRESS', color: 'agent' },
-    { id: 'closed', title: 'DONE', color: 'done' },
+    { id: 'draft', title: 'BACKLOG', dotColor: '#ff8b66' },
+    { id: 'sent', title: 'TO DO', dotColor: '#8b95a5' },
+    { id: 'in_progress', title: 'IN PROGRESS', dotColor: '#5b8def' },
+    { id: 'closed', title: 'DONE', dotColor: '#4dc89a' },
   ];
 
   // Close dropdown on outside click
@@ -46,6 +65,21 @@ export default function Board({ ctx }: Props) {
     return () => document.removeEventListener('click', handler);
   }, []);
 
+  // Fetch AI Agent members for avatar stack + stats
+  useEffect(() => {
+    fetchAIAgentScreenshotMembers().then(data => {
+      setAgentMembers((data.members || []).filter(m => m.username.toLowerCase() !== 'doraemon'));
+    }).catch(() => {});
+    fetchStats(ctx.selectedProject, ctx.selectedBranch).then(data => {
+      setMemberStats(data.members || []);
+    }).catch(() => {});
+  }, [ctx.selectedProject, ctx.selectedBranch]);
+
+  // Reset move target branch when selection changes or branch changes
+  useEffect(() => {
+    setMoveTargetBranch('');
+  }, [ctx.selectedRequirements.size, ctx.selectedBranch]);
+
   const handleCreateBranch = useCallback(async () => {
     if (!project || !branchName.trim()) return;
     try {
@@ -55,7 +89,7 @@ export default function Board({ ctx }: Props) {
       setBranchName('');
       await ctx.reload();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed');
+      toast('error', e instanceof Error ? e.message : 'Failed');
     }
   }, [project, branchName, ctx]);
 
@@ -68,17 +102,34 @@ export default function Board({ ctx }: Props) {
         priority: reqPriority,
         status: reqStatus,
         branch_id: ctx.selectedBranch || branches[0].id,
+        assigned_member: reqAssignedMember,
       });
       ctx.selectRequirement(req.id);
       setReqModalOpen(false);
       setReqTitle('');
       setReqDescription('');
       setReqPriority('low');
+      setReqAssignedMember('');
       await ctx.reload();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed');
+      toast('error', e instanceof Error ? e.message : 'Failed');
     }
-  }, [project, reqTitle, reqDescription, reqPriority, reqStatus, ctx, branches]);
+  }, [project, reqTitle, reqDescription, reqPriority, reqStatus, reqAssignedMember, ctx, branches]);
+
+  const handleMoveSelected = useCallback(async () => {
+    if (!project || ctx.selectedRequirements.size === 0 || !moveTargetBranch) return;
+    try {
+      await updateBoard(project.id, {
+        requirement_ids: [...ctx.selectedRequirements],
+        branch_id: moveTargetBranch,
+      });
+      ctx.clearSelection();
+      setMoveTargetBranch('');
+      await ctx.reload();
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Failed');
+    }
+  }, [project, ctx, moveTargetBranch]);
 
   const handleCloseSelected = useCallback(async () => {
     if (!project || ctx.selectedRequirements.size === 0) return;
@@ -90,7 +141,7 @@ export default function Board({ ctx }: Props) {
       ctx.clearSelection();
       await ctx.reload();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed');
+      toast('error', e instanceof Error ? e.message : 'Failed');
     }
   }, [project, ctx]);
 
@@ -109,7 +160,7 @@ export default function Board({ ctx }: Props) {
       });
       await ctx.reload();
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Failed');
+      toast('error', e instanceof Error ? e.message : 'Failed');
     }
   }, [project, ctx]);
 
@@ -120,6 +171,11 @@ export default function Board({ ctx }: Props) {
   const priorityLabel = (p: string) => ({
     no_priority: 'No priority', urgent: 'Urgent', high: 'High', medium: 'Medium', low: 'Low',
   }[p] || 'Low');
+
+  // Find stat for a given member
+  const getMemberStat = (username: string) => memberStats.find(s => s.username === username);
+
+  const canMove = moveTargetBranch !== '' && moveTargetBranch !== ctx.selectedBranch;
 
   return (
     <section id="boardView" className="view activeView">
@@ -158,27 +214,81 @@ export default function Board({ ctx }: Props) {
               </div>
             )}
           </div>
-          <button className={mergeTW(buttonVariants.secondary)} onClick={() => {
-            if (!project) { alert('Select a project first'); return; }
+          <button className={mergeTW(buttonVariants.secondary)} disabled={!project} onClick={() => {
+            if (!project) return;
             setBranchModalOpen(true);
           }}>Branch</button>
-          <button className={mergeTW(buttonVariants.default)} onClick={() => {
-            if (!project) { alert('Select a project first'); return; }
+          <button className={mergeTW(buttonVariants.default)} disabled={!project} onClick={() => {
+            if (!project) return;
             setReqStatus('draft');
+            setReqAssignedMember('');
             setReqModalOpen(true);
           }}>New Requirement</button>
         </div>
       </div>
+
+      {/* AI Agent Members Row — independent full-width row */}
+      {agentMembers.length > 0 && (
+        <div className="memberRow">
+          <div className="memberAvatars">
+            {agentMembers.slice(0, 6).map((member, idx) => {
+              const stat = getMemberStat(member.username);
+              return (
+                <div
+                  key={member.username}
+                  className="memberAvatarItem"
+                  style={{ zIndex: agentMembers.length - idx }}
+                  title={`${member.username} · ${member.status}${stat ? ` · ${stat.task_count} tasks` : ''}`}
+                >
+                  <div
+                    className="memberAvatarFace"
+                    style={{ backgroundColor: avatarColor(member.username) }}
+                  >
+                    {avatarText(member.username)}
+                  </div>
+                  {stat && stat.task_count > 0 && (
+                    <span className="memberTaskBadge">{stat.task_count}</span>
+                  )}
+                </div>
+              );
+            })}
+            {agentMembers.length > 6 && (
+              <div className="memberAvatarItem" style={{ zIndex: 0 }}>
+                <div className="memberAvatarFace" style={{ backgroundColor: '#3a4454' }}>
+                  +{agentMembers.length - 6}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="memberStats">
+            {agentMembers.length} members online
+            {memberStats.length > 0 && (
+              <> · {memberStats.reduce((sum, s) => sum + s.task_count, 0)} tasks assigned</>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Selection toolbar */}
       {ctx.selectedRequirements.size > 0 && (
         <div className="selectionToolbar">
           <strong>{ctx.selectedRequirements.size} selected</strong>
           <div className="moveBranchControls">
-            <select className="moveBranchSelect" disabled>
-              <option value="">Select branch...</option>
+            <select
+              className="moveBranchSelect select-native"
+              value={moveTargetBranch}
+              onChange={e => setMoveTargetBranch(e.target.value)}
+            >
+              <option value="">Move to branch...</option>
+              {branches.filter(b => b.id !== ctx.selectedBranch).map(branch => (
+                <option key={branch.id} value={branch.id}>{branch.name}</option>
+              ))}
             </select>
-            <button className={mergeTW(buttonVariants.secondary)} disabled>Move</button>
+            <button
+              className={mergeTW(buttonVariants.secondary)}
+              disabled={!canMove}
+              onClick={handleMoveSelected}
+            >Move</button>
           </div>
           <button className={mergeTW(buttonVariants.secondary)} onClick={handleCloseSelected}>Close</button>
         </div>
@@ -218,6 +328,7 @@ export default function Board({ ctx }: Props) {
                       onDrop={e => handleDrop(e, col.id)}
                     >
                       <div className="columnHead">
+                        <span className="columnDot" style={{ backgroundColor: col.dotColor }}></span>
                         {col.title} <span>{colReqs.length}</span>
                       </div>
                       <button
@@ -225,6 +336,7 @@ export default function Board({ ctx }: Props) {
                         onClick={() => {
                           if (!project) return;
                           setReqStatus(col.id);
+                          setReqAssignedMember('');
                           setReqModalOpen(true);
                         }}
                       >+</button>
@@ -253,10 +365,18 @@ export default function Board({ ctx }: Props) {
                             >
                               <div className="issueBody">
                                 <div className="issueTitle">{req.title}</div>
-                                <div className="badges">
-                                  <span className={`badge ${req.priority || 'low'}`}>
-                                    {priorityLabel(req.priority)}
-                                  </span>
+                                <div className="issueRow">
+                                  <span className={`badge ${req.priority || 'low'}`}>{priorityLabel(req.priority)}</span>
+                                </div>
+                                <div className="issueRow">
+                                  {req.assigned_member ? (
+                                    <span className="badge member" style={{
+                                      backgroundColor: avatarColor(req.assigned_member),
+                                      color: '#fff',
+                                    }}>{avatarText(req.assigned_member)}</span>
+                                  ) : (
+                                    <span className="badge none">Unassigned</span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -345,6 +465,12 @@ export default function Board({ ctx }: Props) {
                   </label>
                 ))}
               </div>
+              <select className="select-native" value={reqAssignedMember} onChange={e => setReqAssignedMember(e.target.value)}>
+                <option value="">Unassigned</option>
+                {agentMembers.map(m => (
+                  <option key={m.username} value={m.username}>{m.username}</option>
+                ))}
+              </select>
               <textarea
                 placeholder="Requirement detail"
                 value={reqDescription}

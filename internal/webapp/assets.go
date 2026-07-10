@@ -145,6 +145,51 @@ func cleanupLocalAssets(root string, maxAge time.Duration) error {
 	})
 }
 
+// Delete removes an asset from MinIO and the local fallback directory.
+// It does not return an error if the object does not exist.
+func (s AssetStorage) Delete(ctx context.Context, key string) error {
+	// Delete from MinIO (best-effort).
+	if err := s.deleteObject(ctx, key); err != nil {
+		// Log but don't fail — MinIO may be unreachable but local
+		// cleanup is still valuable.
+	}
+	// Delete from local fallback.
+	localDir := strings.TrimSpace(s.LocalDir)
+	if localDir != "" {
+		localPath := filepath.Join(localDir, filepath.FromSlash(key))
+		_ = os.Remove(localPath)
+	}
+	return nil
+}
+
+func (s AssetStorage) deleteObject(ctx context.Context, key string) error {
+	endpoint, err := url.Parse(s.Endpoint)
+	if err != nil {
+		return fmt.Errorf("parse MinIO endpoint: %w", err)
+	}
+	endpoint.Path = "/" + path.Join(strings.TrimPrefix(endpoint.Path, "/"), s.Bucket, key)
+	request, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint.String(), nil)
+	if err != nil {
+		return err
+	}
+	emptyHash := "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+	signS3Request(request, s, emptyHash)
+	client := &http.Client{Timeout: 30 * time.Second}
+	response, err := client.Do(request)
+	if err != nil {
+		return fmt.Errorf("delete asset from MinIO: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		if response.StatusCode == 404 {
+			return nil
+		}
+		data, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
+		return fmt.Errorf("delete asset from MinIO failed: status %d %s", response.StatusCode, strings.TrimSpace(string(data)))
+	}
+	return nil
+}
+
 func (s AssetStorage) putObject(ctx context.Context, key string, contentType string, body []byte) error {
 	endpoint, err := url.Parse(s.Endpoint)
 	if err != nil {

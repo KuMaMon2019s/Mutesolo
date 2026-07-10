@@ -72,7 +72,40 @@ func (s *JSONStore) Save(state State) error {
 	if err := os.Rename(tmp, s.path); err != nil {
 		return fmt.Errorf("replace web state: %w", err)
 	}
+	// Rebuild stats after every save.
+	if err := s.RebuildStats(state); err != nil {
+		return fmt.Errorf("rebuild stats: %w", err)
+	}
 	return nil
+}
+
+// SaveMembers persists only the member list by loading the full state, updating
+// the Members field, and saving back.
+func (s *JSONStore) SaveMembers(members []Member) error {
+	state, err := s.Load()
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	for i := range members {
+		if members[i].UpdatedAt == "" {
+			members[i].UpdatedAt = now
+		}
+	}
+	state.Members = members
+	return s.Save(state)
+}
+
+// LoadMembers reads the member list from the persisted state.
+func (s *JSONStore) LoadMembers() ([]Member, error) {
+	state, err := s.Load()
+	if err != nil {
+		return nil, err
+	}
+	if state.Members == nil {
+		return []Member{}, nil
+	}
+	return state.Members, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -173,6 +206,15 @@ func UpdateRequirementDetails(state *State, projectID string, reqID string, inpu
 			}
 			if strings.TrimSpace(input.AgentID) != "" {
 				req.AgentID = strings.TrimSpace(input.AgentID)
+			}
+			if strings.TrimSpace(input.AssignedMember) != "" {
+				req.AssignedMember = strings.TrimSpace(input.AssignedMember)
+			}
+			if len(input.EditorContent) > 0 {
+				req.EditorContent = input.EditorContent
+			}
+			if len(input.Attachments) > 0 {
+				req.Attachments = input.Attachments
 			}
 			req.UpdatedAt = now
 			state.Projects[pi].UpdatedAt = now
@@ -307,4 +349,105 @@ func newID(name string) string {
 		id = "item"
 	}
 	return fmt.Sprintf("%s%d", id, time.Now().UTC().UnixNano())
+}
+
+// statsPath returns the path to the stats JSON file alongside the main state file.
+func (s *JSONStore) statsPath() string {
+	return s.path + ".stats.json"
+}
+
+// RebuildStats computes stats from the state and persists them to a dedicated JSON file.
+func (s *JSONStore) RebuildStats(state State) error {
+	entries := computeStatsEntries(state)
+	data, err := json.MarshalIndent(entries, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode stats: %w", err)
+	}
+	if err := os.WriteFile(s.statsPath(), append(data, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write stats: %w", err)
+	}
+	return nil
+}
+
+// LoadStats reads pre-built stats from the dedicated JSON file.
+func (s *JSONStore) LoadStats(projectID, branchID string) (StatsResponse, error) {
+	entries, err := s.loadStatsEntries()
+	if err != nil {
+		return StatsResponse{}, err
+	}
+	return aggregateStats(entries, projectID, branchID), nil
+}
+
+func (s *JSONStore) loadStatsEntries() ([]StatsEntry, error) {
+	data, err := os.ReadFile(s.statsPath())
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read stats: %w", err)
+	}
+	var entries []StatsEntry
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return nil, fmt.Errorf("decode stats: %w", err)
+	}
+	return entries, nil
+}
+
+// computeStatsEntries builds []StatsEntry from the current State.
+func computeStatsEntries(state State) []StatsEntry {
+	var entries []StatsEntry
+	for _, project := range state.Projects {
+		for _, req := range project.Requirements {
+			member := strings.TrimSpace(req.AssignedMember)
+			if member == "" {
+				continue
+			}
+			branchID := req.BranchID
+			if branchID == "" {
+				branchID = "main"
+			}
+			status := req.Status
+			if status == "" {
+				status = "draft"
+			}
+			entries = append(entries, StatsEntry{
+				ProjectID: project.ID,
+				BranchID:  branchID,
+				Member:    member,
+				Status:    status,
+				Count:     1,
+			})
+		}
+	}
+	return entries
+}
+
+// aggregateStats groups StatsEntry rows by member and status, with optional filters.
+func aggregateStats(entries []StatsEntry, projectID, branchID string) StatsResponse {
+	memberMap := make(map[string]map[string]int)
+	for _, e := range entries {
+		if projectID != "" && e.ProjectID != projectID {
+			continue
+		}
+		if branchID != "" && e.BranchID != branchID {
+			continue
+		}
+		if _, ok := memberMap[e.Member]; !ok {
+			memberMap[e.Member] = make(map[string]int)
+		}
+		memberMap[e.Member][e.Status] += e.Count
+	}
+	var stats StatsResponse
+	for member, breakdown := range memberMap {
+		total := 0
+		for _, c := range breakdown {
+			total += c
+		}
+		stats.Members = append(stats.Members, MemberStats{
+			Username:        member,
+			TaskCount:       total,
+			StatusBreakdown: breakdown,
+		})
+	}
+	return stats
 }

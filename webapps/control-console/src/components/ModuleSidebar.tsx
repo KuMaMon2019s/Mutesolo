@@ -17,8 +17,8 @@ export default function ModuleSidebar({ ctx, projects }: ModuleSidebarProps) {
   };
 
   const handleBranchClick = (projectId: string, branchId: string) => {
-    ctx.selectBranch(branchId);
     ctx.selectProject(projectId);
+    ctx.selectBranch(branchId);
     ctx.setView('boardView' as ViewId);
   };
 

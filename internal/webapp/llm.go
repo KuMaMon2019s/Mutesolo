@@ -75,7 +75,7 @@ func LLMRequestFromConfig(cfg Config) LLMRequest {
 	return LLMRequest{
 		Provider: "opencode",
 		Model:    defaultOpenCodeModel,
-		APIKey:   cfg.LLMAPIKey,
+		APIKey:   cfg.OpenCodeAPIKey,
 		BaseURL:  defaultOpenCodeBaseURL,
 	}
 }
@@ -88,7 +88,7 @@ func MergeLLMRequest(saved Config, input LLMRequest) LLMRequest {
 		input.Model = defaultOpenCodeModel
 	}
 	if strings.TrimSpace(input.APIKey) == "" {
-		input.APIKey = saved.LLMAPIKey
+		input.APIKey = saved.OpenCodeAPIKey
 	}
 	if strings.TrimSpace(input.BaseURL) == "" {
 		input.BaseURL = defaultOpenCodeBaseURL

@@ -237,7 +237,7 @@ func TestSQLiteStoreBoardUpdate(t *testing.T) {
 
 func TestServerWorksWithSQLite(t *testing.T) {
 	store := newTestSQLiteStore(t)
-	server := NewServer(store, "web")
+	server := NewServer(store, "web", nil)
 	if server.Handler() == nil {
 		t.Fatal("Handler returned nil")
 	}
@@ -245,7 +245,7 @@ func TestServerWorksWithSQLite(t *testing.T) {
 
 func TestServerWorksWithJSON(t *testing.T) {
 	store := NewJSONStore(filepath.Join(t.TempDir(), "state.json"))
-	server := NewServer(store, "web")
+	server := NewServer(store, "web", nil)
 	if server.Handler() == nil {
 		t.Fatal("Handler returned nil")
 	}
