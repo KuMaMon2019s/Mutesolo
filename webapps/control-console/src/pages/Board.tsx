@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useEffectEvent } from 'react';
 import type { AppContextType } from '../App';
 import { createBranch, createRequirement, updateBoard, fetchAIAgentScreenshotMembers, fetchStats } from '../api/projects';
 import { buttonVariants } from '../variants';
@@ -74,6 +74,13 @@ export default function Board({ ctx }: Props) {
       setMemberStats(data.members || []);
     }).catch(() => {});
   }, [ctx.selectedProject, ctx.selectedBranch]);
+
+  // Auto-poll board data so MCP/Discord updates appear without manual refresh
+  const onPoll = useEffectEvent(() => ctx.reload());
+  useEffect(() => {
+    const id = setInterval(onPoll, 5000);
+    return () => clearInterval(id);
+  }, []);
 
   // Reset move target branch when selection changes or branch changes
   useEffect(() => {

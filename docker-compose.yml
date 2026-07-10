@@ -30,5 +30,19 @@ services:
       mc ilm rule ls local/\"$${MINIO_BUCKET}\""
     restart: "no"
 
+  # ---------------------------------------------------------------------------
+  # MCP Server — 将看板能力暴露给 AI Agent
+  # ---------------------------------------------------------------------------
+  mcp-server:
+    build:
+      context: ./mcp-server
+      dockerfile: Dockerfile
+    container_name: Mutesolo-mcp
+    ports:
+      - "8001:8001"
+    environment:
+      - MUTESOLO_BACKEND_URL=http://host.docker.internal:8787
+    restart: unless-stopped
+
 volumes:
   mutisolo-minio-data:
