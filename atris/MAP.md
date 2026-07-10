@@ -117,7 +117,7 @@ rg "STATUS_LABELS" mcp-server/server.py        # Status constants (line 29)
 
 ### Feature: Document Parse (MinerU)
 **Purpose:** PDF/Document → Markdown conversion via local MinerU
-- **API handler:** `internal/webapp/server.go:41` (handleDocumentParse, in documents.go)
+- **API handler:** `internal/webapp/documents.go:41` (handleDocumentParse)
 - **Parse logic:** `internal/webapp/documents.go:61` (ParseDocument), `L108` (prepareDocumentInput)
 - **MinerU outputs:** `internal/webapp/documents.go:188` (findMinerUOutputs)
 - **Model:** `internal/webapp/documents.go:20` (DocumentParseRequest), `L30` (DocumentParseResponse)
@@ -217,7 +217,7 @@ rg "STATUS_LABELS" mcp-server/server.py        # Status constants (line 29)
 | GET/POST | /api/clawhub/skills/{id} | handleClawHubSkillActions | 142 |
 | GET | /api/plugin-runtimes | handlePluginRuntimes | 300 |
 | POST | /api/assets | handleAssets | 87 |
-| POST | /api/documents/parse | handleDocumentParse | 41 (in documents.go) |
+| POST | /api/documents/parse | handleDocumentParse | documents.go:41 |
 | POST | /api/llm/test | handleLLMTest | 977 |
 | GET/POST | /api/projects | handleProjects | 478 |
 | GET/PUT/DELETE | /api/projects/{id} | handleProjectActions | 632 |
