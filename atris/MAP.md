@@ -10,6 +10,8 @@ rg "export default function" src/pages/        # Page components
 rg "type.*struct" internal/webapp/models.go    # Data models (line 10-240)
 rg "HandleFunc" internal/webapp/server.go      # Route table (line 43-62)
 rg "Repository" internal/webapp/repository.go  # Storage interface (line 1-50)
+rg "@mcp.tool" mcp-server/server.py            # MCP Kanban tools (line 99-302)
+rg "STATUS_LABELS" mcp-server/server.py        # Status constants (line 27-32)
 ```
 
 ---
@@ -98,6 +100,21 @@ rg "Repository" internal/webapp/repository.go  # Storage interface (line 1-50)
 - **API:** `internal/webapp/server.go:350-450` (handleDocumentParse)
 - **Docs:** `docs/mineru-native.md`
 
+### Feature: MCP Kanban Server (fastMCP)
+**Purpose:** Expose Kanban via Model Context Protocol to AI agents
+- **Server:** `mcp-server/server.py:38` (FastMCP('Mutesolo'), 5 tools)
+- **Tools:** list_projects(L99), get_board(L125), task(L174), get_task_detail(L228), list_tasks(L258)
+- **Docker:** `mcp-server/Dockerfile:1-16` (python:3.12, streamable-http:8001)
+- **Compose:** `docker-compose.yml:36-45` (mcp-server service)
+
+### Feature: Board Auto-Refresh
+**Purpose:** 5s polling keeps Kanban in sync with MCP/Discord updates
+- **Poll:** `webapps/control-console/src/pages/Board.tsx:77-83` (useEffectEvent + setInterval)
+
+### Feature: Mutesolo Kanban Skill
+**Purpose:** Natural language → MCP tool translation for Discord
+- **Skill:** `skills/mutesolo-kanban.md` (status mapping, workflow steps)
+
 ### Feature: CLI (opclawctl)
 **Purpose:** CLI tool for agent/skill/task management
 - **Entry:** `cmd/opclawctl/main.go:16` (main)
@@ -158,6 +175,7 @@ rg "Repository" internal/webapp/repository.go  # Storage interface (line 1-50)
 | `internal/webapp/server.go` | All HTTP handlers, ~870 lines |
 | `internal/webapp/models.go` | Data structures shared by all layers |
 | `internal/webapp/repository.go` | Storage abstraction interface |
+| `mcp-server/server.py` | fastMCP Kanban server, 5 tools |
 | `webapps/control-console/src/App.tsx` | React router, state management |
 | `webapps/control-console/src/styles.css` | All component CSS, ~1300 lines |
 | `schema.sql` | Database schema |
