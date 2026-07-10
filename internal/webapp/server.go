@@ -40,7 +40,6 @@ func (s Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(envOrDefault("MUTESOLO_ASSET_FALLBACK_DIR", ".ai-agent/assets")))))
 	mux.Handle("/apps/requirement-editor/", http.StripPrefix("/apps/requirement-editor/", http.FileServer(http.Dir(filepath.Join("webapps", "requirement-editor", "dist")))))
-	mux.HandleFunc("/apps/react-admin/", s.handleReactAdmin)
 	mux.HandleFunc("/", s.handleControlConsole)
 	mux.HandleFunc("/api/state", s.handleState)
 	mux.HandleFunc("/api/config", s.handleConfig)
@@ -61,19 +60,6 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/api/generate-prompt", s.handleGeneratePrompt)
 	mux.HandleFunc("/api/github/push", s.handleGitHubPush)
 	return mux
-}
-
-func (s Server) handleReactAdmin(w http.ResponseWriter, r *http.Request) {
-	// Try Vite dev server first (development mode)
-	devProxy := httputil.NewSingleHostReverseProxy(&url.URL{Scheme: "http", Host: "localhost:5173"})
-	devProxy.ErrorHandler = func(_ http.ResponseWriter, _ *http.Request, _ error) {
-		// Fall back to serving built dist directory (production mode)
-		distDir := filepath.Join("webapps", "react-admin", "dist")
-		stripPrefix := "/apps/react-admin"
-		fs := http.StripPrefix(stripPrefix, http.FileServer(http.Dir(distDir)))
-		fs.ServeHTTP(w, r)
-	}
-	devProxy.ServeHTTP(w, r)
 }
 
 func (s Server) handleControlConsole(w http.ResponseWriter, r *http.Request) {
