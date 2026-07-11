@@ -5,15 +5,15 @@
 ## Quick Reference
 
 ```
-rg "func handle" internal/webapp/server.go     # HTTP handlers (line 39-1022)
+rg "func handle" internal/webapp/server.go     # HTTP handlers (line 65-1022)
 rg "export default function" webapps/control-console/src/pages/  # Page components
-rg "type.*struct" internal/webapp/models.go    # Data models (line 8-246)
+rg "type.*struct" internal/webapp/models.go    # Data models (line 8-239)
 rg "HandleFunc" internal/webapp/server.go      # Route table (line 43-61)
 rg "Repository" internal/webapp/repository.go  # Storage interface (line 6)
 rg "@mcp.tool" mcp-server/server.py            # MCP Kanban tools (line 101-261)
 rg "STATUS_LABELS" mcp-server/server.py        # Status constants (line 29)
-rg "type Agent" internal/coordination/models.go   # Agent/task models (line 28-69)
-rg "func (CreateTask|MatchTask|AssignTask)" internal/coordination/core.go  # Coordination logic (line 23-103)
+rg "type Agent" internal/coordination/models.go   # Agent/task models (line 5-91)
+rg "func (CreateTask|MatchTask|AssignTask)" internal/coordination/core.go  # Coordination logic (line 23-69)
 rg "Repository" internal/coordination/repository.go  # Coordination storage interface (line 6)
 ```
 
@@ -27,7 +27,7 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 - **Backend selection:** `cmd/mutesolo-web/main.go:100` (resolveBackend — JSON vs SQLite)
 - **Cover migration:** `cmd/mutesolo-web/cover_migration.go:14` (runCoverMigration)
 - **Routes (Go):** `internal/webapp/server.go:43-61` (all HandleFunc registrations)
-- **Page shell:** `webapps/control-console/src/App.tsx` (AppContextType, ViewId routing)
+- **Page shell:** `webapps/control-console/src/App.tsx:92` (App — ViewId routing)
 
 ### Feature: Project Management
 **Purpose:** CRUD projects, branches, requirements
@@ -114,7 +114,7 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 
 ### Feature: Toast Notifications
 **Purpose:** Float UI style alerts, center-top, auto-dismiss
-- **Core:** `webapps/control-console/src/components/toastStore.ts` (DOM-based, no React dependency)
+- **Core:** `webapps/control-console/src/components/toastStore.ts:1-31` (DOM-based, no React dependency; ToastType, toast)
 - **Usage:** `import { toast } from '../components/toastStore'; toast('success', 'Saved');`
 - **Pages using:** TaskDetail, Board, Projects, Connections
 
@@ -165,7 +165,7 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 - **Models:** `internal/coordination/models.go:5-91` (Agent, Skill, Task, Session, Event, State; enums agent/task/session status)
 - **Interface:** `internal/coordination/repository.go:6` (Repository — Load/Save)
 - **WithState:** `internal/coordination/repository.go:17` (WithState — transactional read-modify-write helper)
-- **Core logic:** `internal/coordination/core.go:17-188` (CreateTask:23, MatchTask:48, AssignTask:69, bestAgentForTask:104)
+- **Core logic:** `internal/coordination/core.go:17-188` (MatchResult:17, CreateTask:23, MatchTask:48, AssignTask:69, bestAgentForTask:104)
 - **SQLite impl:** `internal/coordination/sqlite_store.go:18-322` (SQLiteStore — full CRUD, 322 lines)
 - **JSON impl:** `internal/coordination/json_store.go:15-127` (JSONStore, 127 lines)
 - **CLI consumer:** `cmd/opclawctl/main.go:58` (openRepository → coordination.Repository), `L75` (resolveCoordBackend)
@@ -179,7 +179,7 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 |------|------|------|
 | `cmd/mutesolo-web/main.go` | 16 | Web server main |
 | `cmd/opclawctl/main.go` | 16 | CLI main |
-| `webapps/control-console/src/App.tsx` | — | React app root (ViewId routing) |
+| `webapps/control-console/src/App.tsx` | 92 | React app root (ViewId routing) |
 | `webapps/requirement-editor/src/RequirementEditor.tsx` | — | Editor component |
 
 ### Data Models (all in internal/webapp/models.go)
@@ -303,7 +303,7 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 | File | Why |
 |------|-----|
 | `internal/webapp/server.go` | All HTTP handlers, ~1175 lines |
-| `internal/webapp/models.go` | Data structures shared by all layers, 246 lines |
+| `internal/webapp/models.go` | Data structures shared by all layers |
 | `internal/webapp/repository.go` | Storage abstraction interface |
 | `internal/webapp/sqlite_store.go` | SQLite persistence, ~713 lines |
 | `internal/webapp/json_store.go` | JSON persistence, ~453 lines |
