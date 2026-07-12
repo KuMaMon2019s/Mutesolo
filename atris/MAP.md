@@ -110,6 +110,8 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 - **MinIO client:** `internal/storage/minio.go:17-89` (Client — Upload, Delete, Presigned URLs)
 - **Asset tracking:** SQLite `asset_refs` table, cascade delete on project/requirement
 - **Asset refs:** `internal/webapp/sqlite_store.go:629-707` (ensureAssetRefsTable, SaveAssetRef, GetAssetRefsByProject, GetAssetRefsByRequirement, DeleteAssetRefsByProject, DeleteAssetRefsByRequirement)
+- **Asset ref dispatch:** `internal/webapp/server.go:1054-1148` (Server.saveAssetRef, getAssetRefsByProject, getAssetRefsByRequirement, deleteAssetRefsAndMinIO, deleteAssetRefsByProject, deleteAssetRefsByRequirement — dual-backend dispatch)
+- **Server helpers:** `internal/webapp/server.go:1038` (runGit), `L1166` (writeJSON), `L1171` (writeError)
 - **Schema:** `schema.sql` (full DDL)
 
 ### Feature: Toast Notifications
@@ -151,7 +153,7 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 ### Feature: CLI (opclawctl)
 **Purpose:** CLI tool for agent/skill/task management
 - **Entry:** `cmd/opclawctl/main.go:16` (main)
-- **Commands:** pipeline (L90), pipelineRun (L102), agents (L132), skills (L144), tasks (L156), createTask (L172), matchTask (L190), assignTask (L205), events (L217)
+- **Commands:** run (L23 — top-level dispatcher), pipeline (L90), pipelineRun (L102), agents (L132), skills (L144), tasks (L156), createTask (L172), matchTask (L190), assignTask (L205), events (L217), splitCaps (L233), newTable (L240), printUsage (L244)
 - **Coordination:** `cmd/opclawctl/main.go:58` (openRepository), `L75` (resolveCoordBackend)
 
 ### Feature: GitHub Push
@@ -313,7 +315,7 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 | `webapps/control-console/src/api/projects.ts` | All project/agent/skill API calls, ~130 lines |
 | `schema.sql` | Database schema |
 | `cmd/mutesolo-web/main.go` | Server entry point |
-| `cmd/opclawctl/main.go` | CLI entry point, ~244 lines |
+| `cmd/opclawctl/main.go` | CLI entry point, 259 lines |
 | `internal/coordination/models.go` | Agent/task/session data structures, 98 lines |
 | `internal/coordination/core.go` | Task matching + assignment logic, 196 lines |
 | `internal/coordination/sqlite_store.go` | Coordination SQLite persistence, 322 lines |
