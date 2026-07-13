@@ -1,107 +1,190 @@
-# Mutesolo v0.1.0
+# Mutesolo v0.4.2
 
-> **让多智能体协作像人类团队一样高效** — 通过 Discord + Web 控制台实现 AI Agent 分工协作、任务分配和进度可视化。
+> **Orchestrate AI agents like a human team** — manage requirements, generate targeted prompts, and track progress through a unified Web console.
 
-## 🎯 解决什么问题
+## What Problem Does This Solve?
 
-多个 AI Agent（如不同模型、不同能力的子智能体）一起工作时，最大的痛点是**谁来指挥、怎么分工、如何追踪进度**。
+Managing multiple AI agents (different models, different capabilities) introduces a coordination challenge: **who commands what, how to divide work, and how to track progress.**
 
-Mutesolo 提供了一个控制台（Web Console），让你：
+Mutesolo provides a control console to:
 
-- **在 Web 端管理项目和需求**，像 Jira 一样组织任务
-- **通过 Discord 派发任务**给不同能力的 Agent
-- **实时看板追踪进度**，每个 Agent 在做什么一目了然
-- **任务结果通过 Git 提交**，完整可追溯
+- **Organize projects and requirements** with an interactive Kanban board
+- **Generate structured prompts** from your requirements using multimodal LLMs
+- **Dispatch tasks to AI agents** via Discord with commit-verified results
+- **Track progress** — see what each agent is working on in real time
+- **Manage branches** — isolate workstreams and cascade-delete when done
 
-### 典型场景
+### Typical Flow
 
 ```
-你（Project Lead）
-  ├── 在 Web 端创建需求 "设计登录页"
-  ├── 看板自动分配给 UI Agent（设计稿）
-  ├── 完成后流转给 Frontend Agent（代码实现）
-  ├── 再流转给 QA Agent（测试）
-  └── 每个 Agent 完成自动 commit，你实时看到进度
+You (Project Lead)
+  ├── Create a requirement in the Web console
+  ├── Write specs + attach images in the BlockNote editor
+  ├── Click "Generate Prompt" → Ark LLM creates a structured agent prompt
+  ├── Dispatch to a Frontend Agent via Discord
+  ├── Agent commits code → returns commit SHA
+  ├── QA Agent picks up → verifies → marks done
+  └── You see every status change on the live board
 ```
 
-## ✨ 核心功能
+## ✨ Core Features
 
-| 功能 | 说明 |
-|------|------|
-| 🗂️ **项目管理** | 项目、需求、看板、分支管理 |
-| 📝 **需求编辑器** | BlockNote 富文本编辑器，支持图片、附件、腾讯文档 |
-| 🤖 **Agent 注册** | Agent 能力注册与在线状态监控 |
-| 📋 **任务分配** | 根据能力自动匹配或手动派发 |
-| ⚡ **AI 提示词生成** | 根据需求自动生成 Agent 执行指令 |
-| 📦 **技能市场** | 浏览、安装、查看来自 ClawHub 的 AI Skill |
-| 💾 **本地优先** | SQLite + MinIO 本地存储，数据不离开你的设备 |
+| Feature | Description |
+|---------|-------------|
+| 🔐 **Login & Profile** | Username/password auth with bcrypt + JWT (30-day expiry), "Remember me" persistence |
+| 🗂️ **Project Management** | Projects, requirements, Kanban board, branch management with batch operations |
+| 📝 **Rich Editor** | BlockNote editor with image uploads, attachments, and Tencent Docs integration |
+| 🤖 **AI Prompt Generation** | Generate structured implementation prompts from editor content + images using Ark multimodal LLM |
+| 📦 **GitHub Integration** | Browse repositories, view release changelogs, filter by public/private |
+| 🔀 **Branch Management** | Isolate workstreams, bulk-select + cascade-delete branches and their requirements |
+| 🎛️ **Connections Page** | Configure Ark LLM, GitHub token, Discord bot, ClawHub API key |
+| 📊 **Kanban Board** | Drag-and-drop, auto-poll (5s), Discord/MCP-driven status updates |
+| 🖼️ **Image Management** | MinIO-backed project covers, image attachments with auto base64 conversion for LLM |
+| 💾 **Local-First Storage** | SQLite + MinIO — all data stays on your machine |
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
 ```bash
-# 启动 Web 控制台
-go run ./cmd/mutesolo-web
-# 访问 http://127.0.0.1:8787
-```
+# Start the Web console
+./mutesolo-web -backend sqlite
+# Visit http://127.0.0.1:8787
 
-需要对象存储（可选）：
-```bash
+# Optional: start object storage for images & file uploads
 docker compose up -d minio minio-init
+
+# Optional: start MCP server for Discord Kanban control
+docker compose up -d mcp-server
 ```
 
-## 🏗️ 架构
+### First-Time Setup
+1. Visit `http://127.0.0.1:8787` → you'll see the login page
+2. Create an account (or sign in if returning)
+3. Go to **Connections** → configure your Ark API Key, GitHub token, etc.
+4. Create a **Project** → enter its **Board** → start adding requirements
+
+## 🏗️ Architecture
 
 ```
-┌──────────────────────────────────────────────┐
-│                  Discord                      │
-│   (任务下发给 Agent / 人工确认 / 结果汇报)      │
-└──────────────────┬───────────────────────────┘
-                   │
-┌──────────────────▼───────────────────────────┐
-│            Web Control Console                │
-│  Projects → Board → TaskDetail → Prompt Gen  │
-└──────────────────┬───────────────────────────┘
-                   │
-        ┌──────────┼──────────┐
-        ▼          ▼          ▼
-    ┌──────┐  ┌──────┐  ┌──────────┐
-    │SQLite│  │MinIO │  │ClawHub   │
-    │主状态│  │文件  │  │Skill市场 │
-    └──────┘  └──────┘  └──────────┘
+┌──────────────────────────────────────────────────────┐
+│                     Discord                          │
+│   Task dispatch → Agent picks up → returns SHA       │
+└───────────────────────┬──────────────────────────────┘
+                        │
+┌───────────────────────▼──────────────────────────────┐
+│              Web Control Console                      │
+│  Projects → Board → TaskDetail → Generate Prompt     │
+│  GitHub Repos → Connections → Profile                │
+└───────────────────────┬──────────────────────────────┘
+                        │
+         ┌──────────────┼───────────────┐
+         ▼              ▼               ▼
+    ┌─────────┐   ┌─────────┐   ┌──────────────┐
+    │ SQLite  │   │  MinIO  │   │   Ark LLM    │
+    │ (state) │   │ (files) │   │ (multimodal) │
+    └─────────┘   └─────────┘   └──────────────┘
+         │                              │
+    ┌─────────┐              ┌──────────────────┐
+    │ fastMCP │              │  GitHub API      │
+    │ Docker  │              │  (repos + auth)  │
+    └─────────┘              └──────────────────┘
 ```
 
-## 💡 核心设计
+## 💡 Core Design Principles
 
-- **控制台不直接执行代码** — 只生成提示词，通过 Discord 下发给 Agent
-- **人工在环**（Human-in-the-loop） — 任何时候你都可以介入、修改、取消
-- **Git 完整追溯** — 每个 Agent 的产出物通过 Git commit 记录
-- **本地存储** — SQLite 存主状态，MinIO 存文件，不上传云端
+- **Console generates, Agent executes** — The Web console produces structured prompts; agents pick them up and report results
+- **Human-in-the-loop** — You can intervene, modify, or cancel any task at any time
+- **Git traceability** — Every agent output is committed with a SHA for audit
+- **Local storage** — SQLite for state, MinIO for assets — nothing leaves your machine
+- **Simple over complex** — Password auth instead of OAuth, single-user by design
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
-cmd/mutesolo-web/          # Web 控制台入口
-internal/webapp/           # Go 后端 (API / 存储 / 提示词生成)
-internal/storage/          # MinIO 客户端
-webapps/control-console/   # React + Vite 前端
-webapps/requirement-editor/ # BlockNote 需求编辑器
-schema.sql                 # SQLite 数据库结构
-scripts/                   # 迁移脚本与工具
+cmd/mutesolo-web/                # Web server entry point
+internal/webapp/                 # Go backend (API, auth, storage, prompts, LLM)
+    auth.go                      # JWT, bcrypt, login/logout/register
+    server.go                    # HTTP handlers + middleware
+    sqlite_store.go              # SQLite CRUD + migrations
+    json_store.go                # JSON store fallback
+    github.go                    # GitHub API integration (repos, releases)
+    llm.go                       # Ark LLM multimodal integration
+    prompt.go                    # Prompt builder and agent dispatch
+    models.go                    # Shared data models
+    schema.sql                   # SQLite DDL
+webapps/control-console/         # React + Vite + TypeScript frontend
+    src/pages/
+        Login.tsx                # GitHub/OAuth → password login (Float UI)
+        Projects.tsx             # Project cards with MinIO covers
+        Board.tsx                # Kanban + Branch view with batch selection
+        TaskDetail.tsx           # Requirement editor + AI prompt generation
+        GitHubRepos.tsx           # Repository browser (waterfall layout)
+        Connections.tsx          # Ark, GitHub, Discord, ClawHub config
+        Profile.tsx              # Account settings + password change
+    src/api/                     # Frontend API layer
+    src/components/              # NavRail, toast, variants
+webapps/requirement-editor/      # BlockNote rich-text editor
+mcp-server/                      # fastMCP server for Discord Kanban control
+    server.py                    # 5 MCP tools (list_projects, get_board, etc.)
+docker-compose.yml               # MinIO + MCP server
+schema.sql                       # SQLite schema (users, projects, requirements, ...)
 ```
 
-## 🔧 技术栈
+## 🔧 Tech Stack
 
-- **后端**: Go
-- **前端**: React + TypeScript + Vite
-- **存储**: SQLite (主状态) + MinIO (文件)
-- **编辑器**: BlockNote (富文本)
-- **协议**: A2A (Agent-to-Agent)
+| Layer | Technology |
+|-------|-----------|
+| **Backend** | Go (net/http) |
+| **Auth** | bcrypt + JWT (HS256, random secret per boot) |
+| **Frontend** | React 19 + TypeScript + Vite + Tailwind CSS |
+| **State Storage** | SQLite (primary) + JSON file (fallback) |
+| **File Storage** | MinIO (object storage) |
+| **Editor** | BlockNote (rich text) |
+| **LLM** | Volcano Ark API (ark-code-latest, multimodal) |
+| **Agent Protocol** | fastMCP + Discord |
+| **GitHub** | REST API v3 (repos, releases) |
 
-## 📚 相关链接
+## 🔌 Integrations
 
-- [Agent 协调协议 (A2A)](https://github.com/KuMaMon2019s)
-- [ClawHub 技能市场](https://clawhub.ai)
+### Ark LLM (Volcano Ark)
+- **Model**: `ark-code-latest` (multimodal, high thinking mode)
+- **Base URL**: `https://ark.cn-beijing.volces.com/api/plan/v3`
+- **Config**: API Key in Connections → used by Generate Prompt & image analysis
+- **Image handling**: Local/relative URLs auto-converted to base64 data: URLs
+
+### GitHub
+- **Token**: Fine-grained or classic token with `repo` scope
+- **Features**: Browse repos, view releases, filter by visibility
+- **Cache**: Repo list 5 min, releases 30 min
+
+### fastMCP (Discord Kanban)
+- **Docker**: Port 8001, streamable-http transport
+- **Tools**: `list_projects`, `get_board`, `task`, `get_task_detail`, `list_tasks`
+- **Server name**: `mutesolo` (to avoid conflicts with built-in Kanban toolsets)
+
+### MinIO
+- **Ports**: 9000 (API), 9001 (Console)
+- **Bucket**: `mutesolo-assets` — project covers, uploaded images
+- **Access**: Presigned URLs with 10-minute TTL
+
+## 🔐 Security
+
+- **Password hashing**: bcrypt with auto salt
+- **Session**: JWT signed with random per-boot secret, 30-day expiry
+- **Cookie**: httpOnly, SameSite Lax
+- **Remember me**: LocalStorage-based credential persistence (cleared on logout)
+- **API Key isolation**: Mutesolo's GitHub token is separate from Hermes `.env`
+
+## 📊 Release History
+
+| Version | Highlights |
+|---------|-----------|
+| v0.4.2 | Auth system, Ark LLM multimodal, Branch batch management, critical bug fixes |
+| v0.3.1 | Code review hotfix — SQLite FK constraints, cache token key, 7 total |
+| v0.3.0 | GitHub Repos integration — waterfall cards, releases, private repos |
+| v0.2.0 | fastMCP Discord Kanban — 5 MCP tools, Board auto-refresh |
+| v0.1.1-beta | Legacy UI cleanup, control-console rewrite |
+| v0.1.0 | Initial release — projects, board, prompt generation |
 
 ---
 
-**Mutesolo** — 让你的 AI Agent 团队真正高效协作
+**Mutesolo** — turn your AI agents from solo performers into a coordinated orchestra.
