@@ -3,8 +3,11 @@ package webapp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -61,17 +64,36 @@ var (
 	releasesTTL    = 30 * time.Minute
 )
 
+const defaultGitHubUser = "KuMaMon2019s"
+
 func fetchGitHubRepos(ctx context.Context, token, username string) ([]GitHubRepo, error) {
+	// Build cache key: include token prefix so changing token invalidates cache
+	cacheKey := username
+	if token != "" {
+		prefix := token
+		if len(prefix) > 8 {
+			prefix = prefix[:8]
+		}
+		cacheKey = prefix + ":" + username
+	}
+
 	// Check cache
 	cacheMu.RLock()
-	if entry, ok := reposCache[username]; ok && time.Since(entry.timestamp) < reposTTL {
+	if entry, ok := reposCache[cacheKey]; ok && time.Since(entry.timestamp) < reposTTL {
 		cacheMu.RUnlock()
 		return entry.data, nil
 	}
 	cacheMu.RUnlock()
 
 	// Fetch list from GitHub
-	listURL := "https://api.github.com/users/" + username + "/repos?per_page=100&sort=pushed"
+	// Use /user/repos to include private repos (authenticated user)
+	// Fall back to /users/{u}/repos when searching other users
+	var listURL string
+	if token != "" && username == defaultGitHubUser {
+		listURL = "https://api.github.com/user/repos?per_page=100&sort=pushed&type=all"
+	} else {
+		listURL = "https://api.github.com/users/" + username + "/repos?per_page=100&sort=pushed&type=all"
+	}
 	type ghRepo struct {
 		ID          int    `json:"id"`
 		Name        string `json:"name"`
@@ -135,7 +157,7 @@ func fetchGitHubRepos(ctx context.Context, token, username string) ([]GitHubRepo
 
 	// Cache
 	cacheMu.Lock()
-	reposCache[username] = &reposCacheEntry{data: result, timestamp: time.Now()}
+	reposCache[cacheKey] = &reposCacheEntry{data: result, timestamp: time.Now()}
 	cacheMu.Unlock()
 
 	return result, nil
@@ -150,7 +172,7 @@ func fetchGitHubReleases(ctx context.Context, token, owner, repo string, perPage
 	}
 	cacheMu.RUnlock()
 
-	url := "https://api.github.com/repos/" + owner + "/" + repo + "/releases?per_page=" + itoa(perPage)
+	url := "https://api.github.com/repos/" + owner + "/" + repo + "/releases?per_page=" + strconv.Itoa(perPage)
 	type ghRelease struct {
 		TagName     string `json:"tag_name"`
 		Name        string `json:"name"`
@@ -200,18 +222,6 @@ func fetchGitHubReleases(ctx context.Context, token, owner, repo string, perPage
 	return &result, nil
 }
 
-func itoa(n int) string {
-	if n <= 0 {
-		return "10"
-	}
-	s := ""
-	for n > 0 {
-		s = string(rune('0'+n%10)) + s
-		n /= 10
-	}
-	return s
-}
-
 func doGitHubAPI[T any](ctx context.Context, token, url string) (T, error) {
 	var zero T
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -231,9 +241,8 @@ func doGitHubAPI[T any](ctx context.Context, token, url string) (T, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// Read body for error info but don't blow up
 		log.Printf("GitHub API %s returned %d", url, resp.StatusCode)
-		return zero, nil
+		return zero, fmt.Errorf("GitHub API returned HTTP %d", resp.StatusCode)
 	}
 
 	var result T
@@ -253,12 +262,18 @@ func (s Server) handleGitHubRepos(w http.ResponseWriter, r *http.Request) {
 
 	username := r.URL.Query().Get("username")
 	if username == "" {
-		username = "KuMaMon2019s"
+		username = defaultGitHubUser
 	}
 
 	username = strings.TrimSpace(username)
 	if username == "" {
 		writeError(w, http.StatusBadRequest, "username is required")
+		return
+	}
+
+	// Validate GitHub username format
+	if ok, _ := regexp.MatchString(`^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$`, username); !ok {
+		writeError(w, http.StatusBadRequest, "invalid GitHub username format")
 		return
 	}
 
@@ -317,7 +332,7 @@ func (s Server) handleGitHubReleases(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
 	releases, err := fetchGitHubReleases(ctx, state.Config.GitHubToken, owner, repo, perPage)

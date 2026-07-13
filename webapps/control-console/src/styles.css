@@ -1329,6 +1329,37 @@ pre {
   color: #f2f5f8;
 }
 
+.ghReposTabs {
+  display: flex;
+  gap: 4px;
+  padding: 1px;
+  background: #10141a;
+  border-radius: 10px;
+}
+
+.ghReposTab {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #8b95a5;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ghReposTab:hover {
+  color: #cdd5df;
+  background: rgba(255,255,255,0.05);
+}
+
+.ghReposTab.active {
+  background: #1d232d;
+  color: #f2f5f8;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
 .ghReposSearchRow {
   display: flex;
   align-items: center;
@@ -1531,13 +1562,10 @@ pre {
   color: #f2f5f8;
 }
 
-/* ── Commit overlay (absolute, does NOT affect column-count) ── */
+/* ── Commit overlay (relative, pushes content down naturally) ── */
 .ghRepoCommitsOverlay {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 10;
+  position: relative;
+  width: 100%;
   margin-top: 4px;
   background: #1d232d;
   border-radius: 12px;
@@ -1572,6 +1600,7 @@ pre {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
+  justify-content: space-between;
   gap: 8px;
   font-size: 13px;
   line-height: 1.4;
@@ -1584,6 +1613,13 @@ pre {
 
 .ghRepoReleaseItem:hover {
   background: rgba(255,255,255,0.05);
+}
+
+.ghRepoReleaseLeft {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 
 .ghRepoReleaseTag {

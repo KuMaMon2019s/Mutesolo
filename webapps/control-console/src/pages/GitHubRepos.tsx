@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ChevronDownIcon, ChevronUpIcon, ArrowTopRightOnSquareIcon } from '@heroicons/react/16/solid';
 import type { AppContextType } from '../App';
 import { fetchGitHubRepos, fetchGitHubReleases, type GitHubRepo, type GitHubRelease } from '../api/github';
@@ -194,8 +194,10 @@ function RepoCard({
                   rel="noopener noreferrer"
                   className="ghRepoReleaseItem"
                 >
-                  <span className="ghRepoReleaseTag">{r.tag_name}</span>
-                  <span className="ghRepoReleaseName">{r.name}</span>
+                  <div className="ghRepoReleaseLeft">
+                    <span className="ghRepoReleaseTag">{r.tag_name}</span>
+                    <span className="ghRepoReleaseName">{r.name}</span>
+                  </div>
                   <span className="ghRepoCommitTime">{relativeTime(r.published_at)}</span>
                   {r.body && <span className="ghRepoReleaseBody">{r.body}</span>}
                 </a>
@@ -216,6 +218,7 @@ export default function GitHubRepos(_props: Props) {
   const [expandedRepoId, setExpandedRepoId] = useState<number | null>(null);
   const [username, setUsername] = useState('');
   const [searched, setSearched] = useState(false);
+  const [filterTab, setFilterTab] = useState<'all' | 'public' | 'private'>('all');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async (user: string) => {
@@ -231,7 +234,7 @@ export default function GitHubRepos(_props: Props) {
     }
   }, []);
 
-  // Auto-load on mount (no network in dev, will show empty gracefully)
+  // Auto-load on mount
   useEffect(() => {
     load('');
   }, [load]);
@@ -247,22 +250,43 @@ export default function GitHubRepos(_props: Props) {
     if (e.key === 'Enter') handleSearch();
   };
 
+  const filteredRepos = useMemo(() => {
+    if (filterTab === 'all') return repos;
+    return repos.filter(r => filterTab === 'private' ? r.private : !r.private);
+  }, [repos, filterTab]);
+
   return (
     <div className="ghReposPage">
       {/* Header */}
       <div className="ghReposHeader">
-        <h1 className="ghReposTitle">GitHub Repositories</h1>
+        <div>
+          <h1 className="ghReposTitle">GitHub Repositories</h1>
+          <p className="muted">Browse your GitHub repositories, view release changelogs, and jump to the project.</p>
+        </div>
+        {/* Filter tabs */}
+        <div className="ghReposTabs">
+          {(['all', 'public', 'private'] as const).map(tab => (
+            <button
+              key={tab}
+              type="button"
+              className={`ghReposTab ${filterTab === tab ? 'active' : ''}`}
+              onClick={() => { setFilterTab(tab); setExpandedRepoId(null); }}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
         <div className="ghReposSearchRow">
           <input
             ref={inputRef}
             type="text"
             className="ghReposSearchInput"
-            placeholder="GitHub username (default: KuMaMon2019s)"
+            placeholder="Repositories name"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             onKeyDown={handleKeyDown}
           />
-          <button type="button" className="secondary" onClick={handleSearch}>
+          <button type="button" className="default" onClick={handleSearch}>
             Search
           </button>
         </div>
@@ -283,9 +307,9 @@ export default function GitHubRepos(_props: Props) {
       )}
 
       {/* Waterfall grid */}
-      {repos.length > 0 && (
+      {filteredRepos.length > 0 && (
         <div className="ghReposGrid">
-          {repos.map((repo) => (
+          {filteredRepos.map((repo) => (
             <RepoCard
               key={repo.id}
               repo={repo}
