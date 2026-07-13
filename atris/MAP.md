@@ -5,19 +5,19 @@
 ## Quick Reference
 
 ```
-rg "func handle" internal/webapp/server.go     # HTTP handlers (line 100-870)
-rg "export default function" src/pages/        # Page components
-rg "type.*struct" internal/webapp/models.go    # Data models (line 10-240)
-rg "HandleFunc" internal/webapp/server.go      # Route table (line 43-62)
-rg "Repository" internal/webapp/repository.go  # Storage interface (line 1-50)
+rg "func handle" internal/webapp/server.go     # HTTP handlers (line 79-1300)
+rg "export default function" webapps/control-console/src/pages/  # Page components
+rg "type.*struct" internal/webapp/models.go    # Data models (line 8-260)
+rg "HandleFunc" internal/webapp/server.go      # Route table (line 43-75)
+rg "Repository" internal/webapp/repository.go  # Storage interface (line 6)
 rg "@mcp.tool" mcp-server/server.py            # MCP Kanban tools (line 99-302)
 rg "STATUS_LABELS" mcp-server/server.py        # Status constants (line 27-32)
-rg "doGitHubAPI" internal/webapp/github.go     # GitHub REST API client
-rg "fetchGitHub" internal/webapp/github.go     # GitHub repos + releases fetchers
-```
+rg "doGitHubAPI" internal/webapp/github.go     # GitHub REST API client (line 225)
+rg "fetchGitHub" internal/webapp/github.go     # GitHub repos (line 69) + releases fetchers (line 166)
 rg "type Agent" internal/coordination/models.go   # Agent/task models (line 5-91)
 rg "func (CreateTask|MatchTask|AssignTask)" internal/coordination/core.go  # Coordination logic (line 23-69)
 rg "Repository" internal/coordination/repository.go  # Coordination storage interface (line 6)
+rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 221-260)
 ```
 
 ---
@@ -29,22 +29,39 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 - **Entry:** `cmd/mutesolo-web/main.go:16` (main)
 - **Backend selection:** `cmd/mutesolo-web/main.go:100` (resolveBackend — JSON vs SQLite)
 - **Cover migration:** `cmd/mutesolo-web/cover_migration.go:14` (runCoverMigration)
-- **Routes (Go):** `internal/webapp/server.go:43-63` (all HandleFunc registrations)
+- **Routes (Go):** `internal/webapp/server.go:43-75` (all HandleFunc registrations)
 - **Page shell:** `webapps/control-console/src/App.tsx:92` (App — ViewId routing)
+
+### Feature: Authentication
+**Purpose:** JWT-based login, register, logout, password change, session middleware
+- **Login page:** `webapps/control-console/src/pages/Login.tsx:8` (Login)
+- **Profile page:** `webapps/control-console/src/pages/Profile.tsx:9` (Profile)
+- **Login handler:** `internal/webapp/auth.go:38` (handleAuthLogin)
+- **Register handler:** `internal/webapp/auth.go:88` (handleAuthRegister)
+- **Logout handler:** `internal/webapp/auth.go:141` (handleAuthLogout)
+- **Change password:** `internal/webapp/auth.go:153` (handleChangePassword)
+- **Get current user:** `internal/webapp/auth.go:203` (handleMe)
+- **JWT generation:** `internal/webapp/auth.go:221` (generateJWT)
+- **JWT parsing:** `internal/webapp/auth.go:233` (parseJWT)
+- **Auth middleware:** `internal/webapp/auth.go:272` (RequireUser)
+- **User model:** `internal/webapp/models.go:242` (User struct)
+- **User store:** `internal/webapp/sqlite_store.go:780-835` (ensureUsersTable, CreateUser, GetUserByID, GetUserByUsername, UpdatePassword)
+- **Frontend API:** `webapps/control-console/src/api/auth.ts:9` (fetchMe), `:19` (logout)
+- **JWT secret init:** `internal/webapp/auth.go:21` (init — reads JWT_SECRET from env or generates random)
 
 ### Feature: Project Management
 **Purpose:** CRUD projects, branches, requirements
 - **Page:** `webapps/control-console/src/pages/Projects.tsx:9` (Project list + create/delete)
 - **Board:** `webapps/control-console/src/pages/Board.tsx:24` (Kanban board)
-- **Task Detail:** `webapps/control-console/src/pages/TaskDetail.tsx:10` (Requirement editor + save)
-- **API create:** `internal/webapp/server.go:478` (handleProjects)
-- **API project actions:** `internal/webapp/server.go:632` (handleProjectActions)
-- **Board update:** `internal/webapp/server.go:927` (handleBoardUpdate, routed via handleProjectActions)
-- **Project delete:** `internal/webapp/server.go:586` (handleProjectDelete, routed via handleProjectActions)
-- **Branch management:** `internal/webapp/server.go:678` (handleBranches)
-- **Requirement CRUD:** `internal/webapp/server.go:707-821` (handleRequirements, handleRequirementDetail, handleRequirementUpdate, handleRequirementDelete)
-- **Project image:** `internal/webapp/server.go:548` (handleProjectImage), `L513` (uploadCoverForProject)
-- **Models:** `internal/webapp/models.go:30-47` (Project, ProjectBranch), `L49` (Requirement)
+- **Task Detail:** `webapps/control-console/src/pages/TaskDetail.tsx:41` (Requirement editor + save)
+- **API create:** `internal/webapp/server.go:494` (handleProjects)
+- **API project actions:** `internal/webapp/server.go:648` (handleProjectActions)
+- **Board update:** `internal/webapp/server.go:943` (handleBoardUpdate, routed via handleProjectActions)
+- **Project delete:** `internal/webapp/server.go:602` (handleProjectDelete, routed via handleProjectActions)
+- **Branch management:** `internal/webapp/server.go:694` (handleBranches)
+- **Requirement CRUD:** `internal/webapp/server.go:723-837` (handleRequirements, handleRequirementDetail, handleRequirementUpdate, handleRequirementDelete)
+- **Project image:** `internal/webapp/server.go:564` (handleProjectImage), `L529` (uploadCoverForProject)
+- **Models:** `internal/webapp/models.go:32-47` (Project, ProjectBranch), `L51` (Requirement)
 
 ### Feature: Requirement Editor (BlockNote)
 **Purpose:** Rich-text editor embedded via iframe
@@ -55,23 +72,25 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 
 ### Feature: AI Prompt Generation
 **Purpose:** OpenCode-powered prompt generation from requirements
-- **Handler:** `internal/webapp/server.go:821` (handlePrompt)
-- **Send prompt:** `internal/webapp/server.go:891` (handleSendPrompt)
-- **Generate prompt:** `internal/webapp/server.go:960` (handleGeneratePrompt)
+- **Handler:** `internal/webapp/server.go:837` (handlePrompt)
+- **Send prompt:** `internal/webapp/server.go:907` (handleSendPrompt)
+- **Generate prompt:** `internal/webapp/server.go:976` (handleGeneratePrompt)
+- **Save prompt to requirement:** `internal/webapp/server.go:890` (savePromptToRequirement)
 - **Build input:** `internal/webapp/prompt.go:184` (BuildLLMPromptInput)
-- **OpenCode call:** `internal/webapp/llm.go:74-83` (LLMRequestFromConfig, MergeLLMRequest)
+- **OpenCode call:** `internal/webapp/llm.go:112-136` (LLMRequestFromConfig, MergeLLMRequest)
 - **Save artifact:** `internal/webapp/prompt.go:51` (StorePromptArtifact)
 - **Discord message:** `internal/webapp/prompt.go:71-81` (BuildDiscordMessage, BuildDiscordMessageForBot)
 - **Requirement editor prompt:** `internal/webapp/prompt.go:84` (BuildRequirementEditorPrompt)
-- **LLM test:** `internal/webapp/server.go:977` (handleLLMTest), `internal/webapp/llm.go:70` (TestOpenCodeConnection)
+- **LLM test:** `internal/webapp/server.go:1103` (handleLLMTest), `internal/webapp/llm.go:108` (TestOpenCodeConnection)
+- **Multimodal prompt:** `internal/webapp/llm.go:258` (GenerateMultimodalPrompt), `L272` (generateArkMultimodalPrompt)
 
 ### Feature: Connections / Config
 **Purpose:** Manage API keys, URLs, LLM settings
-- **Page:** `webapps/control-console/src/pages/Connections.tsx:49` (Connections)
-- **Config API:** `internal/webapp/server.go:321` (handleConfig)
+- **Page:** `webapps/control-console/src/pages/Connections.tsx:51` (Connections)
+- **Config API:** `internal/webapp/server.go:335` (handleConfig)
 - **Config model:** `internal/webapp/models.go:15-28` (Config struct)
 - **Storage:** SQLite config table + JSON web-state.json
-- **Frontend API:** `webapps/control-console/src/api/config.ts:18-22` (fetchConfig, saveConfig)
+- **Frontend API:** `webapps/control-console/src/api/config.ts:20-24` (fetchConfig, saveConfig)
 
 ### Feature: ClawHub Skills Browser
 **Purpose:** Browse, search, install skills from private ClawHub
@@ -80,28 +99,28 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 - **API detail:** `webapps/control-console/src/api/projects.ts:113` (fetchClawHubSkillDetail)
 - **API install:** `webapps/control-console/src/api/projects.ts:117` (installSkill)
 - **Connector:** `internal/webapp/connectors.go` (ListClawHubSkills:133, GetClawHubSkill:190, GetClawHubSkillFiles:245, GetClawHubSkillMarkdown:300)
-- **API handlers:** `internal/webapp/server.go:142` (handleClawHubSkillActions), `L165` (handleClawHubSkillDetail), `L189` (handleClawHubSkillInstall), `L209` (handleClawHubSkillCover), `L464` (handleClawHubSkills)
+- **API handlers:** `internal/webapp/server.go:156` (handleClawHubSkillActions), `L179` (handleClawHubSkillDetail), `L203` (handleClawHubSkillInstall), `L223` (handleClawHubSkillCover), `L480` (handleClawHubSkills)
 
 ### Feature: Plugin Runtimes
 **Purpose:** Display deployed tools/services status
 - **Page:** `webapps/control-console/src/pages/Runtimes.tsx:83` (Runtimes)
 - **API:** `webapps/control-console/src/api/projects.ts:124` (fetchPluginRuntimes)
-- **Handler:** `internal/webapp/server.go:300` (handlePluginRuntimes)
+- **Handler:** `internal/webapp/server.go:314` (handlePluginRuntimes)
 - **Runtime list:** `internal/webapp/runtimes.go:3` (SupportedPluginRuntimes)
 
 ### Feature: AI Agent Status
 **Purpose:** Discord member tracking, agent online status
-- **API:** `internal/webapp/server.go:372` (handleAIAgentStatus), `L381` (handleAIAgentScreenshotMembers)
-- **Members:** `internal/webapp/server.go:423` (handleMembers), `L436` (handleDiscordMembers)
+- **API:** `internal/webapp/server.go:388` (handleAIAgentStatus), `L397` (handleAIAgentScreenshotMembers)
+- **Members:** `internal/webapp/server.go:439` (handleMembers), `L452` (handleDiscordMembers)
 - **Connectors:** `internal/webapp/connectors.go:36` (CheckAIAgent), `L99` (GetDiscordMembers), `L329` (InstallSkillOnAIAgent), `L344` (SendAIAgentPrompt)
 - **Screenshot members:** `internal/webapp/screenshot.go:48` (CaptureDiscordWidgetMembers), `L34` (GetCachedMembers)
 - **Frontend:** `webapps/control-console/src/api/projects.ts:53-69` (fetchAIAgentStatus, fetchTailscaleDevices, fetchDiscordMembers, fetchAIAgentScreenshotMembers, fetchMembers)
-- **Stats:** `internal/webapp/server.go:1005` (handleStats), `webapps/control-console/src/api/projects.ts:73` (fetchStats)
+- **Stats:** `internal/webapp/server.go:1131` (handleStats), `webapps/control-console/src/api/projects.ts:73` (fetchStats)
 
 ### Feature: Tailscale
 **Purpose:** Tailscale device discovery + AI agent URL resolution
 - **Devices:** `internal/webapp/tailscale.go:33` (ReadTailscaleDevices), `L67` (tailscaleDeviceFromNode)
-- **API:** `internal/webapp/server.go:454` (handleTailscaleDevices)
+- **API:** `internal/webapp/server.go:470` (handleTailscaleDevices)
 - **URL resolution:** `internal/webapp/tailscale.go:100` (aiAgentURLForTailscaleIP)
 
 ### Feature: Storage Layer
@@ -112,9 +131,9 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 - **SQLite bootstrap:** `internal/webapp/sqlite_bootstrap.go:12` (SQLiteBootstrapOptions), `L26` (EnsureSQLiteInitialized)
 - **MinIO client:** `internal/storage/minio.go:17-89` (Client — Upload, Delete, Presigned URLs)
 - **Asset tracking:** SQLite `asset_refs` table, cascade delete on project/requirement
-- **Asset refs:** `internal/webapp/sqlite_store.go:629-707` (ensureAssetRefsTable, SaveAssetRef, GetAssetRefsByProject, GetAssetRefsByRequirement, DeleteAssetRefsByProject, DeleteAssetRefsByRequirement)
-- **Asset ref dispatch:** `internal/webapp/server.go:1054-1148` (Server.saveAssetRef, getAssetRefsByProject, getAssetRefsByRequirement, deleteAssetRefsAndMinIO, deleteAssetRefsByProject, deleteAssetRefsByRequirement — dual-backend dispatch)
-- **Server helpers:** `internal/webapp/server.go:1038` (runGit), `L1166` (writeJSON), `L1171` (writeError)
+- **Asset refs:** `internal/webapp/sqlite_store.go:690-771` (ensureAssetRefsTable, SaveAssetRef, GetAssetRefsByProject, GetAssetRefsByRequirement, DeleteAssetRefsByRequirement, DeleteAssetRefsByProject)
+- **Asset ref dispatch:** `internal/webapp/server.go:1180-1278` (Server.saveAssetRef, getAssetRefsByProject, getAssetRefsByRequirement, deleteAssetRefsAndMinIO, deleteAssetRefsByProject, deleteAssetRefsByRequirement — dual-backend dispatch)
+- **Server helpers:** `internal/webapp/server.go:1164` (runGit), `L1292` (writeJSON), `L1297` (writeError)
 - **Schema:** `schema.sql` (full DDL)
 
 ### Feature: Toast Notifications
@@ -132,7 +151,7 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 
 ### Feature: Asset Upload
 **Purpose:** Image/file upload to S3/MinIO with local fallback
-- **Handler:** `internal/webapp/server.go:87` (handleAssets)
+- **Handler:** `internal/webapp/server.go:101` (handleAssets)
 - **Storage:** `internal/webapp/assets.go:25` (AssetStorage), `L46` (AssetStorageFromEnv)
 - **Upload:** `internal/webapp/assets.go:59` (Upload), `L90` (writeLocalAsset), `L114` (uploadLocalFallback)
 - **Delete/Cleanup:** `internal/webapp/assets.go:150` (Delete), `L125` (cleanupLocalAssets)
@@ -161,29 +180,29 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 
 ### Feature: GitHub Push
 **Purpose:** Push state changes to configured GitHub repo
-- **Handler:** `internal/webapp/server.go:1022` (handleGitHubPush)
+- **Handler:** `internal/webapp/server.go:1148` (handleGitHubPush)
 - **Frontend:** `webapps/control-console/src/api/projects.ts:49` (pushGitHub)
 - **Route:** `/api/github/push` at server.go:61
 
-### Feature: GitHub Repos Browser
-**Purpose:** Browse GitHub repositories and commits via cached API proxy
-- **Page:** `webapps/control-console/src/pages/GitHubRepos.tsx:189` (GitHubRepos — repo list + commit viewer)
+### Feature: GitHub Releases Browser
+**Purpose:** Browse GitHub repositories and releases via cached API proxy
+- **Page:** `webapps/control-console/src/pages/GitHubRepos.tsx:215` (GitHubRepos — repo list + release viewer)
 - **Backend:** `internal/webapp/github.go:1-320` (full module: types, cache, API proxy, handlers)
-- **Types:** `internal/webapp/github.go:15-41` (GitHubRepo, GitHubCommit, GitHubCommitsResponse)
-- **Cache:** `internal/webapp/github.go:44-61` (reposCache, commitsCache, 5min/30min TTL)
-- **API proxy:** `internal/webapp/github.go:63` (fetchGitHubRepos), `L143` (fetchGitHubCommits)
-- **Generic client:** `internal/webapp/github.go:205` (doGitHubAPI — typed GitHub API helper)
-- **Handlers:** `internal/webapp/github.go:238` (handleGitHubRepos), `L273` (handleGitHubRepoCommits)
-- **Frontend API:** `webapps/control-console/src/api/github.ts:31` (fetchGitHubRepos), `L36` (fetchGitHubCommits)
+- **Types:** `internal/webapp/github.go:18-47` (GitHubRepo, GitHubRelease, GitHubReleasesResponse)
+- **Cache:** `internal/webapp/github.go:49-61` (reposCacheEntry, releasesCacheEntry, 5min/30min TTL)
+- **API proxy:** `internal/webapp/github.go:69` (fetchGitHubRepos), `L166` (fetchGitHubReleases)
+- **Generic client:** `internal/webapp/github.go:225` (doGitHubAPI — typed GitHub API helper)
+- **Handlers:** `internal/webapp/github.go:257` (handleGitHubRepos), `L298` (handleGitHubReleases)
+- **Frontend API:** `webapps/control-console/src/api/github.ts:32` (fetchGitHubRepos), `L37` (fetchGitHubReleases)
 
 ### Feature: Coordination Layer
 **Purpose:** Agent-task matching, session tracking, event log for CLI coordination
-- **Models:** `internal/coordination/models.go:5-91` (Agent, Skill, Task, Session, Event, State; enums agent/task/session status)
+- **Models:** `internal/coordination/models.go:5-91` (Agent, Skill, Task, Session, Event, State; enums AgentStatus:5, TaskStatus:13, SessionStatus:21)
 - **Interface:** `internal/coordination/repository.go:6` (Repository — Load/Save)
 - **WithState:** `internal/coordination/repository.go:17` (WithState — transactional read-modify-write helper)
-- **Core logic:** `internal/coordination/core.go:17-188` (MatchResult:17, CreateTask:23, MatchTask:48, AssignTask:69, bestAgentForTask:104)
-- **SQLite impl:** `internal/coordination/sqlite_store.go:18-322` (SQLiteStore — full CRUD, 322 lines)
-- **JSON impl:** `internal/coordination/json_store.go:15-127` (JSONStore, 127 lines)
+- **Core logic:** `internal/coordination/core.go:17-196` (MatchResult:17, CreateTask:23, MatchTask:48, AssignTask:69, bestAgentForTask:104, coverage:132, normalizeCaps:145, upsertSession:188)
+- **SQLite impl:** `internal/coordination/sqlite_store.go:18-312` (SQLiteStore — full CRUD, load/save for all entities)
+- **JSON impl:** `internal/coordination/json_store.go:15-127` (JSONStore)
 - **CLI consumer:** `cmd/opclawctl/main.go:58` (openRepository → coordination.Repository), `L75` (resolveCoordBackend)
 
 ---
@@ -203,32 +222,33 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 |--------|------|---------|
 | `State` | 8 | Top-level app state (projects, config, members, asset_refs) |
 | `Config` | 15 | API keys, URLs, LLM settings |
-| `Project` | 30 | Project metadata with branches + requirements |
-| `ProjectBranch` | 43 | Git branch tracking |
-| `Requirement` | 49 | Task with priority, status, prompt, agent assignment |
-| `AIAgentStatus` | 66 | Agent online/offline/error state |
-| `DiscordMember` | 76 | Discord guild member info |
-| `TailscaleDevice` | 83 | Tailscale node → device mapping |
-| `TailscaleDeviceStatus` | 96 | Aggregate Tailscale status |
-| `SkillSummary` | 103 | ClawHub skill metadata |
-| `SkillStats` | 117 | Skill stats (installs, github) |
-| `SkillInstallRequest` | 126 | Install skill on agent request |
-| `SkillInstallResult` | 131 | Install skill response |
-| `PluginRuntime` | 136 | Deployed tool/service info |
-| `PromptResult` | 142 | Saved prompt artifact |
-| `ProjectPromptRequest` | 151 | Prompt generation request |
-| `LLMRequest` | 160 | LLM config (model, provider, etc.) |
-| `LLMTestRequest` | 167 | LLM connectivity test |
-| `RequirementEditorPromptRequest` | 171 | BlockNote editor prompt input |
-| `RequirementEditorTencentDoc` | 178 | Tencent doc reference in editor |
-| `RequirementEditorAttachment` | 185 | Uploaded attachment reference |
-| `SendResult` | 196 | Agent prompt send result |
-| `BoardUpdate` | 203 | Kanban column move payload |
-| `MemberStats` | 211 | Per-member task stats |
-| `StatsResponse` | 217 | Aggregated stats response |
-| `StatsEntry` | 222 | Individual stats record |
-| `Member` | 231 | Persistent member record |
-| `AssetRef` | 239 | Image/file → project/requirement tracking |
+| `Project` | 32 | Project metadata with branches + requirements |
+| `ProjectBranch` | 45 | Git branch tracking |
+| `Requirement` | 51 | Task with priority, status, prompt, agent assignment |
+| `AIAgentStatus` | 68 | Agent online/offline/error state |
+| `DiscordMember` | 78 | Discord guild member info |
+| `TailscaleDevice` | 85 | Tailscale node → device mapping |
+| `TailscaleDeviceStatus` | 98 | Aggregate Tailscale status |
+| `SkillSummary` | 105 | ClawHub skill metadata |
+| `SkillStats` | 119 | Skill stats (installs, github) |
+| `SkillInstallRequest` | 128 | Install skill on agent request |
+| `SkillInstallResult` | 133 | Install skill response |
+| `PluginRuntime` | 138 | Deployed tool/service info |
+| `PromptResult` | 144 | Saved prompt artifact |
+| `ProjectPromptRequest` | 153 | Prompt generation request |
+| `LLMRequest` | 162 | LLM config (model, provider, etc.) |
+| `LLMTestRequest` | 169 | LLM connectivity test |
+| `RequirementEditorPromptRequest` | 173 | BlockNote editor prompt input |
+| `RequirementEditorTencentDoc` | 182 | Tencent doc reference in editor |
+| `RequirementEditorAttachment` | 189 | Uploaded attachment reference |
+| `SendResult` | 200 | Agent prompt send result |
+| `BoardUpdate` | 207 | Kanban column move payload |
+| `MemberStats` | 215 | Per-member task stats |
+| `StatsResponse` | 221 | Aggregated stats response |
+| `StatsEntry` | 226 | Individual stats record |
+| `Member` | 235 | Persistent member record |
+| `User` | 242 | Auth user (id, username, password_hash) |
+| `AssetRef` | 251 | Image/file → project/requirement tracking |
 
 ### Coordination Models (all in internal/coordination/models.go)
 | Struct | Line | Purpose |
@@ -246,40 +266,46 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 | `NewEvent` | 91 | Event factory |
 
 ### HTTP Routes
-| Method | Path | Handler (server.go) | Line |
-|--------|------|---------------------|------|
-| GET | / | handleControlConsole | 65 |
-| GET/POST | /api/state | handleState | 308 |
-| GET/PUT | /api/config | handleConfig | 321 |
-| GET | /api/ai-agent/status | handleAIAgentStatus | 372 |
-| GET | /api/ai-agent/screenshot-members | handleAIAgentScreenshotMembers | 381 |
-| GET | /api/members | handleMembers | 423 |
-| GET | /api/stats | handleStats | 1005 |
-| GET | /api/discord/members | handleDiscordMembers | 436 |
-| GET | /api/tailscale/devices | handleTailscaleDevices | 454 |
-| GET | /api/clawhub/skills | handleClawHubSkills | 464 |
-| GET/POST | /api/clawhub/skills/{id} | handleClawHubSkillActions | 142 |
-| GET | /api/plugin-runtimes | handlePluginRuntimes | 300 |
-| POST | /api/assets | handleAssets | 87 |
+| Method | Path | Handler | File:Line |
+|--------|------|---------|-----------|
+| GET | / | handleControlConsole | server.go:79 |
+| GET/POST | /api/state | handleState | server.go:322 |
+| GET/PUT | /api/config | handleConfig | server.go:335 |
+| GET | /api/ai-agent/status | handleAIAgentStatus | server.go:388 |
+| GET | /api/ai-agent/screenshot-members | handleAIAgentScreenshotMembers | server.go:397 |
+| GET | /api/members | handleMembers | server.go:439 |
+| GET | /api/stats | handleStats | server.go:1131 |
+| GET | /api/me | handleMe | auth.go:203 |
+| GET | /api/discord/members | handleDiscordMembers | server.go:452 |
+| GET | /api/tailscale/devices | handleTailscaleDevices | server.go:470 |
+| GET | /api/clawhub/skills | handleClawHubSkills | server.go:480 |
+| GET/POST | /api/clawhub/skills/{id} | handleClawHubSkillActions | server.go:156 |
+| GET | /api/plugin-runtimes | handlePluginRuntimes | server.go:314 |
+| POST | /api/assets | handleAssets | server.go:101 |
 | POST | /api/documents/parse | handleDocumentParse | documents.go:41 |
-| POST | /api/llm/test | handleLLMTest | 977 |
-| GET/POST | /api/projects | handleProjects | 478 |
-| GET/PUT/DELETE | /api/projects/{id} | handleProjectActions | 632 |
-| POST | /api/generate-prompt | handleGeneratePrompt | 960 |
-| POST | /api/github/push | handleGitHubPush | 1022 |
-| GET | /api/github/repos | handleGitHubRepos | github.go:238 |
-| GET | /api/github/repos/{owner}/{repo}/commits | handleGitHubRepoCommits | github.go:273 |
+| POST | /api/llm/test | handleLLMTest | server.go:1103 |
+| GET/POST | /api/projects | handleProjects | server.go:494 |
+| GET/PUT/DELETE | /api/projects/{id} | handleProjectActions | server.go:648 |
+| POST | /api/generate-prompt | handleGeneratePrompt | server.go:976 |
+| POST | /api/github/push | handleGitHubPush | server.go:1148 |
+| GET | /api/github/repos | handleGitHubRepos | github.go:257 |
+| GET | /api/github/repos/{owner}/{repo}/releases | handleGitHubReleases | github.go:298 |
+| POST | /auth/login | handleAuthLogin | auth.go:38 |
+| POST | /auth/register | handleAuthRegister | auth.go:88 |
+| POST | /auth/logout | handleAuthLogout | auth.go:141 |
 
 ### Frontend Pages
 | Page | File | View Key |
 |------|------|----------|
 | Project List | `Projects.tsx:9` | `projectsView` |
 | Board | `Board.tsx:24` | `boardView` |
-| Task Detail | `TaskDetail.tsx:10` | `taskView` |
+| Task Detail | `TaskDetail.tsx:41` | `taskView` |
 | Skills | `Skills.tsx:141` | `skillsView` / `skillDetailView` |
 | Runtimes | `Runtimes.tsx:83` | `runtimesView` |
-| Connections | `Connections.tsx:49` | `connectionsView` |
-| GitHub Repos | `GitHubRepos.tsx:189` | `reposView` |
+| Connections | `Connections.tsx:51` | `connectionsView` |
+| GitHub Repos | `GitHubRepos.tsx:215` | `reposView` |
+| Login | `Login.tsx:8` | `loginView` |
+| Profile | `Profile.tsx:9` | `profileView` |
 
 ### Frontend Components
 | Component | File | Line |
@@ -287,7 +313,7 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 | Toggle | `Toggle.tsx` | 8 |
 | TextInput | `TextInput.tsx` | 12 |
 | SettingsSection | `SettingsSection.tsx` | 9 |
-| NavRail | `NavRail.tsx` | 17 |
+| NavRail | `NavRail.tsx` | 20 |
 | ModuleSidebar | `ModuleSidebar.tsx` | 9 |
 | SettingsCard | `SettingsCard.tsx` | 12 |
 
@@ -296,8 +322,8 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 |----------|------|------|---------|
 | `api` | `client.ts` | 1 | Generic fetch wrapper |
 | `fetchState` | `state.ts` | 45 | Load full app state |
-| `fetchConfig` | `config.ts` | 18 | Load config |
-| `saveConfig` | `config.ts` | 22 | Save config |
+| `fetchConfig` | `config.ts` | 20 | Load config |
+| `saveConfig` | `config.ts` | 24 | Save config |
 | `createProject` | `projects.ts` | 4 | Create project |
 | `deleteProject` | `projects.ts` | 8 | Delete project |
 | `createBranch` | `projects.ts` | 12 | Create branch |
@@ -317,17 +343,20 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 | `fetchClawHubSkillDetail` | `projects.ts` | 113 | Skill detail |
 | `installSkill` | `projects.ts` | 117 | Install skill |
 | `fetchPluginRuntimes` | `projects.ts` | 124 | Runtime list |
-| `fetchGitHubRepos` | `github.ts` | 31 | List GitHub repos |
-| `fetchGitHubCommits` | `github.ts` | 36 | Repo commits |
+| `fetchGitHubRepos` | `github.ts` | 32 | List GitHub repos |
+| `fetchGitHubReleases` | `github.ts` | 37 | Repo releases |
+| `fetchMe` | `auth.ts` | 9 | Get current user |
+| `logout` | `auth.ts` | 19 | Logout / clear session |
 
 ### Critical Files
 | File | Why |
 |------|-----|
-| `internal/webapp/server.go` | All HTTP handlers, ~1175 lines |
+| `internal/webapp/server.go` | All HTTP handlers, ~1300 lines |
 | `internal/webapp/models.go` | Data structures shared by all layers |
+| `internal/webapp/auth.go` | JWT authentication, login/register, middleware |
 | `internal/webapp/repository.go` | Storage abstraction interface |
-| `internal/webapp/sqlite_store.go` | SQLite persistence, ~713 lines |
-| `internal/webapp/json_store.go` | JSON persistence, ~453 lines |
+| `internal/webapp/sqlite_store.go` | SQLite persistence, ~835 lines |
+| `internal/webapp/json_store.go` | JSON persistence, ~430 lines |
 | `mcp-server/server.py` | fastMCP Kanban server, 5 MCP tools |
 | `webapps/control-console/src/App.tsx` | React router, state management |
 | `webapps/control-console/src/styles.css` | All component CSS |
@@ -337,5 +366,5 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 | `cmd/opclawctl/main.go` | CLI entry point, 259 lines |
 | `internal/coordination/models.go` | Agent/task/session data structures, 98 lines |
 | `internal/coordination/core.go` | Task matching + assignment logic, 196 lines |
-| `internal/coordination/sqlite_store.go` | Coordination SQLite persistence, 322 lines |
+| `internal/coordination/sqlite_store.go` | Coordination SQLite persistence, 312 lines |
 | `internal/webapp/github.go` | GitHub API proxy + cache + handlers, 320 lines |
