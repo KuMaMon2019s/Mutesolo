@@ -59,6 +59,8 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/api/projects/", s.handleProjectActions)
 	mux.HandleFunc("/api/generate-prompt", s.handleGeneratePrompt)
 	mux.HandleFunc("/api/github/push", s.handleGitHubPush)
+	mux.HandleFunc("/api/github/repos", s.handleGitHubRepos)
+	mux.HandleFunc("/api/github/repos/", s.handleGitHubReleases)
 	return mux
 }
 
@@ -358,6 +360,7 @@ func (s Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		mergeString(&state.Config.ClawHubBaseURL, "clawhub_base_url")
 		mergeString(&state.Config.ClawHubAPIKey, "clawhub_api_key")
 		mergeString(&state.Config.OpenCodeAPIKey, "opencode_api_key")
+		mergeString(&state.Config.GitHubToken, "github_token")
 		mergeBool(&state.Config.LLMLocked, "llm_locked")
 		if err := s.store.Save(state); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())

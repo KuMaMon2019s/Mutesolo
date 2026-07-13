@@ -12,6 +12,7 @@ export interface Config {
   clawhub_base_url: string;
   clawhub_api_key: string;
   opencode_api_key: string;
+  github_token: string;
   llm_locked: boolean;
 }
 

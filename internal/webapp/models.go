@@ -24,6 +24,7 @@ type Config struct {
 	ClawHubBaseURL     string `json:"clawhub_base_url"`
 	ClawHubAPIKey      string `json:"clawhub_api_key"`
 	OpenCodeAPIKey     string `json:"opencode_api_key"`
+	GitHubToken        string `json:"github_token"`
 	LLMLocked          bool   `json:"llm_locked"`
 }
 

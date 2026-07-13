@@ -6,12 +6,13 @@ import Board from './pages/Board';
 import TaskDetail from './pages/TaskDetail';
 import Skills from './pages/Skills';
 import Runtimes from './pages/Runtimes';
+import GitHubRepos from './pages/GitHubRepos';
 import Connections from './pages/Connections';
 import type { AppState, Project, ProjectBranch, Requirement } from './api/state';
 import { fetchState } from './api/state';
 import { fetchConfig, type Config } from './api/config';
 
-export type ViewId = 'projectsView' | 'boardView' | 'taskView' | 'skillsView' | 'skillDetailView' | 'runtimesView' | 'connectionsView';
+export type ViewId = 'projectsView' | 'boardView' | 'taskView' | 'skillsView' | 'skillDetailView' | 'runtimesView' | 'connectionsView' | 'githubReposView';
 
 export interface AppContextType {
   state: AppState | null;
@@ -228,7 +229,7 @@ export default function App() {
       if (hash.tab === 'branch') setBoardTab('branch');
     }
     const viewId = hash.view as ViewId | undefined;
-    if (viewId && ['projectsView', 'boardView', 'taskView', 'skillsView', 'skillDetailView', 'runtimesView', 'connectionsView'].includes(viewId)) {
+    if (viewId && ['projectsView', 'boardView', 'taskView', 'skillsView', 'skillDetailView', 'runtimesView', 'connectionsView', 'githubReposView'].includes(viewId)) {
       setCurrentView(viewId);
     }
     // Only run on initial load
@@ -267,6 +268,7 @@ export default function App() {
       case 'skillDetailView': return <Skills ctx={ctx} />;
       case 'runtimesView': return <Runtimes ctx={ctx} />;
       case 'connectionsView': return <Connections ctx={ctx} />;
+      case 'githubReposView': return <GitHubRepos ctx={ctx} />;
     }
   };
 

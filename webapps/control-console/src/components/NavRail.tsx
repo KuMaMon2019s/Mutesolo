@@ -12,6 +12,7 @@ const navItems: { view: ViewId; label: string; letter: string }[] = [
   { view: 'connectionsView', label: 'Connections', letter: 'C' },
   { view: 'runtimesView', label: 'Runtimes', letter: 'R' },
   { view: 'skillsView', label: 'ClawHub', letter: 'S' },
+  { view: 'githubReposView', label: 'GitHub', letter: 'G' },
 ];
 
 export default function NavRail({ currentView, onViewChange, todoRatio }: NavRailProps) {

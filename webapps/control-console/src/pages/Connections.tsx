@@ -31,6 +31,7 @@ const emptyConfig: Config = {
   clawhub_base_url: '',
   clawhub_api_key: '',
   opencode_api_key: '',
+  github_token: '',
   llm_locked: false,
 };
 
@@ -134,7 +135,10 @@ export default function Connections({ ctx: _ctx }: Props) {
         </SettingsSection>
 
         <SettingsSection icon={<CodeBracketIcon className="w-4 h-4" />} title="GitHub">
-          <SettingsCard title="Repository" description="Target GitHub repository">
+          <SettingsCard title="API Token" description="Personal access token for REST API">
+            <TextInput value={config.github_token} onChange={v => update('github_token', v)} placeholder="ghp_..." />
+          </SettingsCard>
+          <SettingsCard title="Push Repo" description="Repository for local git push">
             <TextInput value={config.github_repo} onChange={v => update('github_repo', v)} placeholder="owner/repo" />
           </SettingsCard>
         </SettingsSection>

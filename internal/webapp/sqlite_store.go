@@ -107,7 +107,8 @@ func (s *SQLiteStore) loadConfig() (Config, error) {
 		DiscordBotUsername: kv["discord_bot_username"],
 		GitHubRepo:         kv["github_repo"],
 		ClawHubBaseURL:     kv["clawhub_base_url"],
-		OpenCodeAPIKey:     kv["opencode_api_key"],
+		OpenCodeAPIKey:     kv["op...y"],
+		GitHubToken:        kv["github_token"],
 	}
 	if kv["llm_locked"] == "true" {
 		cfg.LLMLocked = true
@@ -257,6 +258,7 @@ func (s *SQLiteStore) saveConfig(tx *sql.Tx, cfg Config) error {
 		"github_repo":           cfg.GitHubRepo,
 		"clawhub_base_url":      cfg.ClawHubBaseURL,
 		"opencode_api_key":      cfg.OpenCodeAPIKey,
+		"github_token":          cfg.GitHubToken,
 		"llm_locked":            fmt.Sprintf("%v", cfg.LLMLocked),
 	}
 	for k, v := range pairs {
