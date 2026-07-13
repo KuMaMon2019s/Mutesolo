@@ -5,14 +5,16 @@
 ## Quick Reference
 
 ```
-rg "func handle" internal/webapp/server.go     # HTTP handlers (line 65-1022)
-rg "export default function" webapps/control-console/src/pages/  # Page components
-rg "type.*struct" internal/webapp/models.go    # Data models (line 8-239)
-rg "HandleFunc" internal/webapp/server.go      # Route table (line 43-63)
-rg "func (handleGitHub|fetchGitHub|doGitHubAPI)" internal/webapp/github.go  # GitHub API backend (line 63-320)
-rg "Repository" internal/webapp/repository.go  # Storage interface (line 6)
-rg "@mcp.tool" mcp-server/server.py            # MCP Kanban tools (line 101-261)
-rg "STATUS_LABELS" mcp-server/server.py        # Status constants (line 29)
+rg "func handle" internal/webapp/server.go     # HTTP handlers (line 100-870)
+rg "export default function" src/pages/        # Page components
+rg "type.*struct" internal/webapp/models.go    # Data models (line 10-240)
+rg "HandleFunc" internal/webapp/server.go      # Route table (line 43-62)
+rg "Repository" internal/webapp/repository.go  # Storage interface (line 1-50)
+rg "@mcp.tool" mcp-server/server.py            # MCP Kanban tools (line 99-302)
+rg "STATUS_LABELS" mcp-server/server.py        # Status constants (line 27-32)
+rg "doGitHubAPI" internal/webapp/github.go     # GitHub REST API client
+rg "fetchGitHub" internal/webapp/github.go     # GitHub repos + releases fetchers
+```
 rg "type Agent" internal/coordination/models.go   # Agent/task models (line 5-91)
 rg "func (CreateTask|MatchTask|AssignTask)" internal/coordination/core.go  # Coordination logic (line 23-69)
 rg "Repository" internal/coordination/repository.go  # Coordination storage interface (line 6)
