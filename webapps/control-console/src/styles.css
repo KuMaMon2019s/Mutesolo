@@ -52,6 +52,11 @@ body {
   border-right: 1px solid var(--line-soft);
   color: white;
   padding: 18px 10px;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
 }
 .navLogo {
   width: 46px; height: 46px; margin-bottom: 14px;
@@ -1027,6 +1032,77 @@ button.toolsMasonryCard.isSelected {
   overflow: auto;
 }
 .taskMetaForm { gap: 10px; margin-bottom: 12px; }
+
+/* ── Markdown Content (prompt panel) ── */
+.md-content {
+  color: #cdd5df;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.md-h2 {
+  color: #f2f5f8;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 16px 0 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding-bottom: 6px;
+}
+
+.md-h3 {
+  color: #f2f5f8;
+  font-size: 15px;
+  font-weight: 600;
+  margin: 12px 0 6px;
+}
+
+.md-h4, .md-h5 {
+  color: #cdd5df;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 10px 0 4px;
+}
+
+.md-ul {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+
+.md-li {
+  margin: 2px 0;
+  color: #b0b8c4;
+}
+
+.md-li::before {
+  content: "▸ ";
+  color: #4f8ef7;
+  font-size: 10px;
+}
+
+.md-code-block {
+  background: #0d1117;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 8px 0;
+  overflow-x: auto;
+  font-size: 13px;
+  color: #b0b8c4;
+}
+
+.md-inline-code {
+  background: rgba(79, 142, 247, 0.12);
+  color: #4f8ef7;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.md-content strong {
+  color: #f2f5f8;
+  font-weight: 700;
+}
+
 .panelHead {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 12px; margin-bottom: 12px;
@@ -1245,12 +1321,42 @@ button:disabled, select:disabled { cursor: not-allowed; opacity: 0.45; }
 .branchCard {
   display: grid; gap: 8px; width: 100%; min-height: 126px; text-align: left;
   background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px;
-  cursor: pointer;
+  cursor: pointer; position: relative;
 }
 .branchCard.active { border-color: var(--blue); box-shadow: 0 0 0 1px rgba(91, 141, 239, 0.4); }
+.branchCard.selected { border-color: #4f8ef7; border-width: 2px; box-shadow: 0 0 0 1px rgba(79, 142, 247, 0.45); }
 .branchCard strong { font-size: 15px; }
 .branchCard span, .branchStats { color: var(--muted); font-size: 13px; }
 .branchStats { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ── Branch card checkbox ── */
+.branchCardRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.branchCardRow .branchCard {
+  flex: 1;
+}
+
+.branchCardCheck {
+  flex-shrink: 0;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.branchCardRow:hover .branchCardCheck,
+.branchCard.selected + .branchCardCheck,
+.branchCardRow:has(.branchCard.selected) .branchCardCheck { opacity: 1; }
+
+.branchCardCheck input {
+  width: 16px;
+  height: 16px;
+  accent-color: #4f8ef7;
+  cursor: pointer;
+}
 
 /* ── Modals ── */
 .modalOverlay {
@@ -1670,4 +1776,356 @@ pre {
 @media (max-width: 760px) {
   .appShell { grid-template-columns: 1fr; }
   .navRail, .moduleSidebar { display: none; }
+}
+
+/* ── Login Page (full‑screen bg image + right‑centered form) ── */
+.loginPage {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+}
+
+.loginBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.loginBgImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.loginRight {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  width: 50%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.loginFormSide {
+  width: 100%;
+  max-width: 400px;
+}
+
+@media (max-width: 768px) {
+  .loginRight {
+    position: relative;
+    width: 100%;
+    padding: 24px;
+  }
+}
+
+.loginFormHead {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.loginLogo {
+  width: 56px; height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #2a303a, #12161d);
+  box-shadow: inset 0 0 0 1px #343b47;
+  display: grid; place-items: center;
+  color: white; font-weight: 800; font-size: 22px;
+}
+
+.loginFormTitle {
+  font-size: 24px;
+  font-weight: 700;
+  color: #f2f5f8;
+  margin: 0 0 8px;
+}
+
+.loginFormSub {
+  color: #8b95a5;
+  font-size: 14px;
+  margin: 0;
+}
+
+.loginToggle {
+  color: #4f8ef7;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.loginToggle:hover {
+  text-decoration: underline;
+}
+
+.loginForm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loginField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.loginLabel {
+  color: #8b95a5;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.loginInput {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  background: #161b22;
+  color: #f2f5f8;
+  font-size: 14px;
+}
+
+.loginInput::placeholder {
+  color: #555f70;
+}
+
+.loginInput:focus {
+  outline: none;
+  border-color: #4f8ef7;
+}
+
+.loginError {
+  color: #f85149;
+  font-size: 13px;
+  margin: 0;
+}
+
+.loginBtn {
+  padding: 11px 0;
+  border: none;
+  border-radius: 8px;
+  background: #4f8ef7;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-top: 4px;
+}
+
+.loginBtn:hover {
+  background: #3b7de6;
+}
+
+.loginBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loginRemember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8b95a5;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.loginRemember input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #4f8ef7;
+  cursor: pointer;
+}
+
+/* ── Profile Page (two‑column account settings) ── */
+.profilePage {
+  display: flex;
+  min-height: calc(100vh - 60px);
+  padding: 32px 24px;
+  gap: 32px;
+}
+
+.profileSidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.profileTab {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #8b95a5;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.profileTab:hover {
+  color: #cdd5df;
+  background: rgba(255,255,255,0.04);
+}
+
+.profileTab.active {
+  background: #1d232d;
+  color: #f2f5f8;
+}
+
+.profileMain {
+  flex: 1;
+  min-width: 0;
+  background: #1d232d;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 32px;
+}
+
+.profileBanner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  margin-bottom: 24px;
+}
+
+.profileAvatarLarge {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f8ef7, #7c3aed);
+  display: grid;
+  place-items: center;
+  color: white;
+  font-size: 28px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.profileNameBanner {
+  font-size: 22px;
+  font-weight: 700;
+  color: #f2f5f8;
+  margin: 0 0 4px;
+}
+
+.profileMetaBanner {
+  color: #8b95a5;
+  font-size: 13px;
+  margin: 0;
+}
+
+.profileSection {
+  margin-bottom: 24px;
+}
+
+.profileSectionTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #f2f5f8;
+  margin: 0 0 16px;
+}
+
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .profileGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.profileFieldLabel {
+  display: block;
+  color: #8b95a5;
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.profileFieldValue {
+  color: #cdd5df;
+  font-size: 15px;
+  font-weight: 500;
+  margin: 0;
+}
+
+.profileActions {
+  padding-top: 24px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.profileLogoutBtn {
+  padding: 10px 28px;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  background: transparent;
+  color: #f85149;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.profileLogoutBtn:hover {
+  background: rgba(248, 81, 73, 0.1);
+  border-color: #f85149;
+}
+.profileLogoutButton {
+  padding: 10px 32px;
+  border-radius: 8px;
+  border: 1px solid var(--orange);
+  background: transparent;
+  color: var(--orange);
+  font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.profileLogoutButton:hover {
+  background: rgba(255, 139, 102, 0.1);
+}
+
+/* ── Nav Rail User Avatar ── */
+.navRailFooter {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-soft);
+}
+.navUserAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f8ef7, #7c3aed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.navUserAvatar:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 12px rgba(79, 142, 247, 0.4);
 }

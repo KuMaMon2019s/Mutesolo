@@ -1,11 +1,57 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import type { AppContextType } from '../App';
 import { updateRequirement, fetchAIAgentScreenshotMembers } from '../api/projects';
+import { api } from '../api/client';
 import { buttonVariants } from '../variants';
 import mergeTW from '../utils/mergeTW';
 import { toast } from '../components/toastStore';
 
 interface Props { ctx: AppContextType }
+
+type EditorContext = {
+  schemaVersion: number;
+  source: string;
+  blocks: unknown[];
+  plainText: string;
+  tencentDocs: unknown[];
+  attachments: unknown[];
+} | null;
+
+// Read editor context from localStorage (shared origin with iframe)
+function readEditorContext(projectId: string, requirementId: string): EditorContext {
+  try {
+    const key = `Mutesolo.requirementEditor.${projectId}.${requirementId}.v1.context`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw) as EditorContext;
+  } catch {
+    return null;
+  }
+}
+
+// Simple markdown → HTML
+function renderMarkdown(text: string): string {
+  let html = text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="md-code-block"><code>$2</code></pre>')
+    .replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/^#### (.+)$/gm, '<h5 class="md-h5">$1</h5>')
+    .replace(/^### (.+)$/gm, '<h4 class="md-h4">$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3 class="md-h3">$1</h3>')
+    .replace(/^# (.+)$/gm, '<h2 class="md-h2">$1</h2>')
+    .replace(/^- (.+)$/gm, '<li class="md-li">$1</li>')
+    // Process lists paragraph-by-paragraph to avoid merging separate groups
+    .replace(/((?:<li class="md-li">[\s\S]*?<\/li>\s*)+)/g, (match) => {
+      // Wrap each paragraph's list items in <ul>, stripping trailing breaks between paras
+      const items = match.replace(/<br\/>/g, '');
+      return '<ul class="md-ul">' + items + '</ul>';
+    })
+    .replace(/\n\n/g, '<br/><br/>')
+    .replace(/\n/g, '<br/>');
+  html = html.replace(/<\/(h[2-5])><br\/><br\/>/g, '</$1>');
+  return html;
+}
 
 export default function TaskDetail({ ctx }: Props) {
   const project = ctx.currentProject();
@@ -14,8 +60,7 @@ export default function TaskDetail({ ctx }: Props) {
   const [priority, setPriority] = useState('low');
   const [assignedMember, setAssignedMember] = useState('');
   const [promptText, setPromptText] = useState('');
-  const [generating] = useState(false);
-  const [progress] = useState(0);
+  const [generating, setGenerating] = useState(false);
   const [agentMembers, setAgentMembers] = useState<Array<{ username: string; status: string }>>([]);
   const [saving, setSaving] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -39,11 +84,18 @@ export default function TaskDetail({ ctx }: Props) {
     if (!project || !requirement) return;
     setSaving(true);
     try {
-      await updateRequirement(project.id, requirement.id, {
+      // Read editor content from localStorage
+      const editorCtx = readEditorContext(project.id, requirement.id);
+      const payload: Record<string, unknown> = {
         title,
         priority,
         assigned_member: assignedMember,
-      });
+      };
+      if (editorCtx) {
+        payload.editor_content = editorCtx.blocks;
+        payload.attachments = editorCtx.attachments;
+      }
+      await updateRequirement(project.id, requirement.id, payload);
       toast('success', 'Requirement saved');
       await ctx.reload();
     } catch (e) {
@@ -52,6 +104,34 @@ export default function TaskDetail({ ctx }: Props) {
       setSaving(false);
     }
   };
+
+  const handleGenerate = async () => {
+    if (!project || !requirement) return;
+    setGenerating(true);
+    setPromptText('');
+    try {
+      // Read editor content from localStorage
+      const editorCtx = readEditorContext(project.id, requirement.id);
+      const res = await api<{ prompt: string }>('/api/generate-prompt', {
+        method: 'POST',
+        body: JSON.stringify({
+          projectId: project.id,
+          requirementId: requirement.id,
+          plainText: editorCtx?.plainText || requirement.description || requirement.title || '',
+          blocks: editorCtx?.blocks || [],
+          tencentDocs: editorCtx?.tencentDocs || [],
+          attachments: editorCtx?.attachments || [],
+        }),
+      });
+      setPromptText(res.prompt || '');
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Failed to generate prompt');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const formattedPrompt = useMemo(() => promptText ? renderMarkdown(promptText) : '', [promptText]);
 
   const iframeSrc = project && requirement
     ? `/apps/requirement-editor/?embed=1&project=${project.id}&requirement=${requirement.id}&title=${encodeURIComponent(requirement.title || '')}&description=${encodeURIComponent(requirement.description || '')}`
@@ -77,7 +157,13 @@ export default function TaskDetail({ ctx }: Props) {
           </div>
         </div>
         <div className="buttonRow">
-          <button className={mergeTW(buttonVariants.default)} disabled={generating}>Generate Prompt</button>
+          <button
+            className={mergeTW(buttonVariants.default)}
+            disabled={generating}
+            onClick={handleGenerate}
+          >
+            {generating ? 'Generating...' : 'Generate Prompt'}
+          </button>
           <button className={mergeTW(buttonVariants.secondary)} disabled={!promptText}>Copy</button>
         </div>
       </div>
@@ -92,29 +178,16 @@ export default function TaskDetail({ ctx }: Props) {
             >{saving ? 'Saving...' : 'Save'}</button>
           </div>
           <div className="formStack taskMetaForm">
-            <input
-              placeholder="Requirement title"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-            />
+            <input placeholder="Requirement title" value={title} onChange={e => setTitle(e.target.value)} />
             <div className="priorityChoices">
               {['no_priority', 'low', 'medium', 'high', 'urgent'].map(p => (
                 <label key={p}>
-                  <input
-                    type="radio"
-                    name="taskPriority"
-                    value={p}
-                    checked={priority === p}
-                    onChange={() => setPriority(p)}
-                  />
+                  <input type="radio" name="taskPriority" value={p} checked={priority === p} onChange={() => setPriority(p)} />
                   {p === 'no_priority' ? 'No priority' : p.charAt(0).toUpperCase() + p.slice(1)}
                 </label>
               ))}
             </div>
-            <select className="select-native"
-              value={assignedMember}
-              onChange={e => setAssignedMember(e.target.value)}
-            >
+            <select className="select-native" value={assignedMember} onChange={e => setAssignedMember(e.target.value)}>
               <option value="">Unassigned</option>
               {agentMembers.map(m => (
                 <option key={m.username} value={m.username}>{m.username}</option>
@@ -134,21 +207,17 @@ export default function TaskDetail({ ctx }: Props) {
         <section className="panel promptPanel">
           <div className="panelHead">
             <h2>Prompt</h2>
-            <p className="muted"></p>
           </div>
           {generating && (
             <div className="promptProgress">
-              <div className="progressMeta">
-                <span>Generating with OpenCode</span>
-                <strong>{progress}%</strong>
-              </div>
-              <div className="progressTrack">
-                <span style={{ width: `${progress}%` }} />
-              </div>
+              <span className="progressMeta">Generating with Ark AI</span>
+              <div className="progressTrack"><span className="animate-pulse" style={{ width: '100%' }} /></div>
             </div>
           )}
           <div className={`segments ${!promptText ? 'empty' : ''}`}>
-            {promptText || 'No prompt generated'}
+            {generating ? 'Generating...' :
+              promptText ? <div className="md-content" dangerouslySetInnerHTML={{ __html: formattedPrompt }} /> :
+                'Click Generate Prompt to start'}
           </div>
         </section>
       </div>

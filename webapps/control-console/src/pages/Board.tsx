@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useEffectEvent } from 'react';
 import type { AppContextType } from '../App';
-import { createBranch, createRequirement, updateBoard, fetchAIAgentScreenshotMembers, fetchStats } from '../api/projects';
+import { createBranch, createRequirement, updateBoard, fetchAIAgentScreenshotMembers, fetchStats, deleteBranch } from '../api/projects';
 import { buttonVariants } from '../variants';
 import mergeTW from '../utils/mergeTW';
 import { toast } from '../components/toastStore';
@@ -45,6 +45,7 @@ export default function Board({ ctx }: Props) {
   const [agentMembers, setAgentMembers] = useState<Array<{ username: string; status: string }>>([]);
   const [memberStats, setMemberStats] = useState<MemberStatsData[]>([]);
   const [moveTargetBranch, setMoveTargetBranch] = useState('');
+  const [selectedBranches, setSelectedBranches] = useState<Set<string>>(new Set());
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const columns = [
@@ -151,6 +152,34 @@ export default function Board({ ctx }: Props) {
       toast('error', e instanceof Error ? e.message : 'Failed');
     }
   }, [project, ctx]);
+
+  const toggleBranchSelection = useCallback((id: string, selected: boolean) => {
+    setSelectedBranches(prev => {
+      const next = new Set(prev);
+      if (selected) next.add(id); else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const handleDeleteBranches = useCallback(async () => {
+    if (!project || selectedBranches.size === 0) return;
+    if (!window.confirm(`Delete ${selectedBranches.size} branch(es) and all their requirements?`)) return;
+    const ids = [...selectedBranches];
+    let firstError: Error | null = null;
+    for (const branchId of ids) {
+      try {
+        await deleteBranch(project.id, branchId);
+      } catch (e) {
+        firstError = e instanceof Error ? e : new Error('Failed');
+        break;
+      }
+    }
+    if (firstError) {
+      toast('error', firstError.message);
+    }
+    setSelectedBranches(new Set());
+    await ctx.reload();
+  }, [project, selectedBranches, ctx]);
 
   const handleDragStart = (e: React.DragEvent, reqId: string) => {
     e.dataTransfer.setData('text/plain', reqId);
@@ -396,28 +425,46 @@ export default function Board({ ctx }: Props) {
             }
           </div>
         ) : (
-          <div className="branchList">
-            {branches.map(branch => {
-              const branchReqs = (project?.requirements ?? []).filter(
-                r => (r.branch_id || branches[0].id) === branch.id
-              );
-              return (
-                <button
-                  key={branch.id}
-                  className={`branchCard ${branch.id === ctx.selectedBranch ? 'active' : ''}`}
-                  onClick={() => ctx.selectBranch(branch.id)}
-                >
-                  <strong>{branch.name}</strong>
-                  <span>{branchReqs.length} requirement point(s)</span>
-                  <div className="branchStats">
-                    <span>Backlog {branchReqs.filter(r => (r.status || 'draft') === 'draft' || !r.status).length}</span>
-                    <span>To do {branchReqs.filter(r => r.status === 'sent').length}</span>
-                    <span>Progress {branchReqs.filter(r => r.status === 'in_progress').length}</span>
+          <>
+            {/* Branch selection toolbar */}
+            {selectedBranches.size > 0 && (
+              <div className="selectionToolbar">
+                <strong>{selectedBranches.size} selected</strong>
+                <button className={mergeTW(buttonVariants.secondary)} onClick={handleDeleteBranches}>Delete</button>
+              </div>
+            )}
+            <div className="branchList">
+              {branches.map(branch => {
+                const branchReqs = (project?.requirements ?? []).filter(
+                  r => (r.branch_id || branches[0].id) === branch.id
+                );
+                const isSelected = selectedBranches.has(branch.id);
+                return (
+                  <div key={branch.id} className="branchCardRow">
+                    <label className="branchCardCheck" onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={e => toggleBranchSelection(branch.id, e.target.checked)}
+                      />
+                    </label>
+                    <button
+                      className={`branchCard ${branch.id === ctx.selectedBranch ? 'active' : ''} ${isSelected ? 'selected' : ''}`}
+                      onClick={() => ctx.selectBranch(branch.id)}
+                    >
+                      <strong>{branch.name}</strong>
+                      <span>{branchReqs.length} requirement point(s)</span>
+                      <div className="branchStats">
+                        <span>Backlog {branchReqs.filter(r => (r.status || 'draft') === 'draft' || !r.status).length}</span>
+                        <span>To do {branchReqs.filter(r => r.status === 'sent').length}</span>
+                        <span>Progress {branchReqs.filter(r => r.status === 'in_progress').length}</span>
+                      </div>
+                    </button>
                   </div>
-                </button>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 

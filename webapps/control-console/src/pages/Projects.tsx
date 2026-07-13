@@ -59,6 +59,9 @@ export default function Projects({ ctx }: Props) {
                   src={`/api/projects/${project.id}/image`}
                   alt={project.name}
                   loading="lazy"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${project.id}/400/240`;
+                  }}
                 />
                 <div className="waterfallBody">
                   <strong className="waterfallTitle">{project.name}</strong>

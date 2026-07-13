@@ -50,11 +50,66 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 		db.Close()
 		return nil, fmt.Errorf("ensure asset_refs table: %w", err)
 	}
+	if err := store.ensureUsersTable(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("ensure users table: %w", err)
+	}
+	if err := store.ensureBranchesPK(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("ensure branches PK: %w", err)
+	}
 	return store, nil
 }
 
 func (s *SQLiteStore) Close() error {
 	return s.db.Close()
+}
+
+// ensureBranchesPK migrates the branches table from composite PK (project_id, id)
+// to single-column PK (id). This is required because SQLite foreign keys can only
+// reference unique columns, and the old composite PK made branches.id non-unique.
+func (s *SQLiteStore) ensureBranchesPK() error {
+	// Check whether branches table exists and has the old composite PK.
+	var createSQL string
+	err := s.db.QueryRow("SELECT sql FROM sqlite_master WHERE type='table' AND name='branches'").Scan(&createSQL)
+	if err != nil {
+		return nil // table doesn't exist yet — schema.sql will create it fresh
+	}
+	// If id is already the sole PK, nothing to do.
+	if strings.Contains(createSQL, "PRIMARY KEY (id)") || strings.Contains(createSQL, "id TEXT PRIMARY KEY") {
+		return nil
+	}
+
+	// Disable FK checks while we rebuild the table.
+	if _, err := s.db.Exec("PRAGMA foreign_keys = OFF"); err != nil {
+		return fmt.Errorf("disable FK: %w", err)
+	}
+	defer func() { s.db.Exec("PRAGMA foreign_keys = ON") }()
+
+	if _, err := s.db.Exec(`CREATE TABLE IF NOT EXISTS branches_new (
+		id TEXT PRIMARY KEY,
+		project_id TEXT NOT NULL,
+		name TEXT NOT NULL,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+		UNIQUE(project_id, name)
+	)`); err != nil {
+		return fmt.Errorf("create branches_new: %w", err)
+	}
+
+	if _, err := s.db.Exec("INSERT INTO branches_new SELECT id, project_id, name, created_at FROM branches"); err != nil {
+		return fmt.Errorf("copy branches: %w", err)
+	}
+
+	if _, err := s.db.Exec("DROP TABLE branches"); err != nil {
+		return fmt.Errorf("drop old branches: %w", err)
+	}
+
+	if _, err := s.db.Exec("ALTER TABLE branches_new RENAME TO branches"); err != nil {
+		return fmt.Errorf("rename branches_new: %w", err)
+	}
+
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -109,6 +164,7 @@ func (s *SQLiteStore) loadConfig() (Config, error) {
 		ClawHubBaseURL:     kv["clawhub_base_url"],
 		ClawHubAPIKey:      kv["clawhub_api_key"],
 		OpenCodeAPIKey:     kv["opencode_api_key"],
+		ArkAPIKey:          kv["ark_api_key"],
 		GitHubToken:        kv["github_token"],
 	}
 	if kv["llm_locked"] == "true" {
@@ -260,6 +316,7 @@ func (s *SQLiteStore) saveConfig(tx *sql.Tx, cfg Config) error {
 		"clawhub_base_url":      cfg.ClawHubBaseURL,
 		"clawhub_api_key":       cfg.ClawHubAPIKey,
 		"opencode_api_key":      cfg.OpenCodeAPIKey,
+		"ark_api_key":           cfg.ArkAPIKey,
 		"github_token":          cfg.GitHubToken,
 		"llm_locked":            fmt.Sprintf("%v", cfg.LLMLocked),
 	}
@@ -713,5 +770,65 @@ func (s *SQLiteStore) DeleteAssetRefsByProject(projectID string) error {
 		"DELETE FROM asset_refs WHERE project_id = ?",
 		projectID,
 	)
+	return err
+}
+
+// ---------------------------------------------------------------------------
+// Users – GitHub OAuth users
+// ---------------------------------------------------------------------------
+
+func (s *SQLiteStore) ensureUsersTable() error {
+	_, err := s.db.Exec(`CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username TEXT UNIQUE NOT NULL,
+		password_hash TEXT NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+	)`)
+	return err
+}
+
+// CreateUser creates a new user with hashed password.
+func (s *SQLiteStore) CreateUser(username, passwordHash string) (User, error) {
+	_, err := s.db.Exec(
+		`INSERT INTO users (username, password_hash) VALUES (?, ?)`,
+		username, passwordHash,
+	)
+	if err != nil {
+		return User{}, err
+	}
+	return s.GetUserByUsername(username)
+}
+
+// GetUserByID returns a user by internal ID.
+func (s *SQLiteStore) GetUserByID(id int64) (User, error) {
+	var u User
+	var createdAt string
+	err := s.db.QueryRow(
+		"SELECT id, username, password_hash, created_at FROM users WHERE id = ?", id,
+	).Scan(&u.ID, &u.Username, &u.PasswordHash, &createdAt)
+	if err != nil {
+		return User{}, err
+	}
+	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
+	return u, nil
+}
+
+// GetUserByUsername returns a user by username.
+func (s *SQLiteStore) GetUserByUsername(username string) (User, error) {
+	var u User
+	var createdAt string
+	err := s.db.QueryRow(
+		"SELECT id, username, password_hash, created_at FROM users WHERE username = ?", username,
+	).Scan(&u.ID, &u.Username, &u.PasswordHash, &createdAt)
+	if err != nil {
+		return User{}, err
+	}
+	u.CreatedAt, _ = time.Parse(timeLayout, createdAt)
+	return u, nil
+}
+
+// UpdatePassword updates a user's password hash.
+func (s *SQLiteStore) UpdatePassword(userID int64, passwordHash string) error {
+	_, err := s.db.Exec("UPDATE users SET password_hash = ? WHERE id = ?", passwordHash, userID)
 	return err
 }

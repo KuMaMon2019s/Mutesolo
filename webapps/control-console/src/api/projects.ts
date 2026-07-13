@@ -13,6 +13,10 @@ export async function createBranch(projectId: string, name: string): Promise<Pro
   return api<ProjectBranch>(`/api/projects/${projectId}/branches`, { method: 'POST', body: JSON.stringify({ name }) });
 }
 
+export async function deleteBranch(projectId: string, branchId: string): Promise<void> {
+  await api(`/api/projects/${projectId}/branches/${encodeURIComponent(branchId)}`, { method: 'DELETE' });
+}
+
 export async function createRequirement(projectId: string, input: Partial<Requirement>): Promise<Requirement> {
   return api<Requirement>(`/api/projects/${projectId}/requirements`, { method: 'POST', body: JSON.stringify(input) });
 }

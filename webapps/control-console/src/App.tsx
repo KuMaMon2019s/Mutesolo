@@ -8,15 +8,20 @@ import Skills from './pages/Skills';
 import Runtimes from './pages/Runtimes';
 import GitHubRepos from './pages/GitHubRepos';
 import Connections from './pages/Connections';
+import Login from './pages/Login';
+import Profile from './pages/Profile';
 import type { AppState, Project, ProjectBranch, Requirement } from './api/state';
 import { fetchState } from './api/state';
 import { fetchConfig, type Config } from './api/config';
+import type { User } from './api/auth';
+import { fetchMe } from './api/auth';
 
-export type ViewId = 'projectsView' | 'boardView' | 'taskView' | 'skillsView' | 'skillDetailView' | 'runtimesView' | 'connectionsView' | 'githubReposView';
+export type ViewId = 'projectsView' | 'boardView' | 'taskView' | 'skillsView' | 'skillDetailView' | 'runtimesView' | 'connectionsView' | 'githubReposView' | 'loginView' | 'profileView';
 
 export interface AppContextType {
   state: AppState | null;
   config: Config | null;
+  user: User | null;
   selectedProject: string;
   selectedBranch: string;
   selectedRequirement: string;
@@ -94,6 +99,8 @@ export default function App() {
   const cached = loadAppCache();
   const [appState, setAppState] = useState<AppState | null>(null);
   const [config, setConfig] = useState<Config | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [currentView, setCurrentView] = useState<ViewId>(cached?.currentView ?? 'projectsView');
   const [selectedProject, setSelectedProject] = useState(cached?.selectedProject ?? '');
   const [selectedBranch, setSelectedBranch] = useState(cached?.selectedBranch ?? '');
@@ -110,6 +117,14 @@ export default function App() {
   useEffect(() => {
     load().catch(console.error);
   }, [load]);
+
+  // Check auth on mount.
+  useEffect(() => {
+    fetchMe().then(u => {
+      setUser(u);
+      setAuthChecked(true);
+    });
+  }, []);
 
   const projects = appState?.projects ?? [];
 
@@ -239,6 +254,7 @@ export default function App() {
   const ctx: AppContextType = {
     state: appState,
     config,
+    user,
     selectedProject,
     selectedBranch,
     selectedRequirement,
@@ -269,10 +285,28 @@ export default function App() {
       case 'runtimesView': return <Runtimes ctx={ctx} />;
       case 'connectionsView': return <Connections ctx={ctx} />;
       case 'githubReposView': return <GitHubRepos ctx={ctx} />;
+      case 'loginView': return <Login />;
+      case 'profileView': return <Profile ctx={ctx} />;
     }
   };
 
   const showSidebar = currentView === 'boardView' || currentView === 'taskView';
+
+  // Show loading while checking auth.
+  if (!authChecked) {
+    return (
+      <main className="appShell noSidebar">
+        <div className="mainArea" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
+          <p className="muted">Loading...</p>
+        </div>
+      </main>
+    );
+  }
+
+  // Not logged in: show login page.
+  if (!user) {
+    return <Login />;
+  }
 
   return (
     <main className={`appShell${showSidebar ? '' : ' noSidebar'}`}>
@@ -280,6 +314,7 @@ export default function App() {
         currentView={currentView}
         onViewChange={setView}
         todoRatio={todoRatio}
+        user={user}
       />
       {showSidebar && (
         <ModuleSidebar

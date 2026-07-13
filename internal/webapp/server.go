@@ -61,6 +61,18 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/api/github/push", s.handleGitHubPush)
 	mux.HandleFunc("/api/github/repos", s.handleGitHubRepos)
 	mux.HandleFunc("/api/github/repos/", s.handleGitHubReleases)
+	// Auth routes (SQLite backend only)
+	if ss, ok := s.store.(*SQLiteStore); ok {
+		mux.Handle("/api/me", RequireUser(ss)(http.HandlerFunc(s.handleMe)))
+		mux.Handle("/auth/password", RequireUser(ss)(http.HandlerFunc(s.handleChangePassword)))
+	} else {
+		mux.HandleFunc("/api/me", func(w http.ResponseWriter, r *http.Request) {
+			writeError(w, http.StatusNotImplemented, "auth requires sqlite backend")
+		})
+	}
+	mux.HandleFunc("/auth/login", s.handleAuthLogin)
+	mux.HandleFunc("/auth/register", s.handleAuthRegister)
+	mux.HandleFunc("/auth/logout", s.handleAuthLogout)
 	return mux
 }
 
@@ -360,6 +372,7 @@ func (s Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		mergeString(&state.Config.ClawHubBaseURL, "clawhub_base_url")
 		mergeString(&state.Config.ClawHubAPIKey, "clawhub_api_key")
 		mergeString(&state.Config.OpenCodeAPIKey, "opencode_api_key")
+		mergeString(&state.Config.ArkAPIKey, "ark_api_key")
 		mergeString(&state.Config.GitHubToken, "github_token")
 		mergeBool(&state.Config.LLMLocked, "llm_locked")
 		if err := s.store.Save(state); err != nil {
@@ -556,8 +569,8 @@ func (s Server) handleProjectImage(w http.ResponseWriter, r *http.Request, proje
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		if found {
-			writeJSON(w, map[string]string{"url": url})
+		if found && url != "" {
+			http.Redirect(w, r, url, http.StatusFound)
 			return
 		}
 	}
@@ -660,6 +673,10 @@ func (s Server) handleProjectActions(w http.ResponseWriter, r *http.Request) {
 	action := parts[1]
 	switch action {
 	case "branches":
+		if len(parts) == 3 {
+			s.handleBranchDetail(w, r, projectID, parts[2])
+			return
+		}
 		s.handleBranches(w, r, projectID)
 	case "requirements":
 		if len(parts) == 3 {
@@ -705,6 +722,27 @@ func (s Server) handleBranches(w http.ResponseWriter, r *http.Request, projectID
 		return
 	}
 	writeJSON(w, branch)
+}
+
+func (s Server) handleBranchDetail(w http.ResponseWriter, r *http.Request, projectID string, branchID string) {
+	if r.Method != http.MethodDelete {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	state, err := s.store.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !RemoveBranch(&state, projectID, branchID) {
+		writeError(w, http.StatusNotFound, "branch not found")
+		return
+	}
+	if err := s.store.Save(state); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s Server) handleRequirements(w http.ResponseWriter, r *http.Request, projectID string) {
@@ -970,11 +1008,121 @@ func (s Server) handleGeneratePrompt(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	prompt := BuildRequirementEditorPrompt(input.PlainText, input.Blocks, input.TencentDocs, input.Attachments)
-	writeJSON(w, map[string]any{
-		"prompt": prompt,
-		"usage":  "placeholder; connect an online LLM from this backend endpoint only",
-	})
+
+	// Load state for config + full requirement content
+	state, err := s.store.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "cannot load config")
+		return
+	}
+
+	// Load full requirement from store if IDs provided
+	var plainText string
+	var attachments []RequirementEditorAttachment
+
+	if input.ProjectID != "" && input.RequirementID != "" {
+		// Read the full requirement content from storage
+		for _, proj := range state.Projects {
+			if proj.ID == input.ProjectID {
+				for _, req := range proj.Requirements {
+					if req.ID == input.RequirementID {
+						plainText = extractPlainText(req.EditorContent)
+						if len(req.Attachments) > 0 {
+							json.Unmarshal(req.Attachments, &attachments)
+						}
+						break
+					}
+				}
+				break
+			}
+		}
+	}
+
+	// Fallback to user-provided content if not loaded from storage
+	if plainText == "" {
+		plainText = input.PlainText
+	}
+	if len(attachments) == 0 {
+		attachments = input.Attachments
+	}
+
+	// Build prompt text: send user's requirement directly, not a meta-prompt
+	var promptBuilder strings.Builder
+	promptBuilder.WriteString("Based on the following requirement and attached images, generate a concise implementation prompt for an AI coding agent. 保持内容精简。\n\n")
+	promptBuilder.WriteString("Include only the essential:\n- Core implementation steps (≤5)\n- Key technical constraints\n- Expected outputs\n\n")
+	promptBuilder.WriteString("Requirement content:\n")
+	if strings.TrimSpace(plainText) != "" {
+		promptBuilder.WriteString(plainText)
+	} else {
+		promptBuilder.WriteString("(No text provided — use attached images to understand the requirement)")
+	}
+	promptBuilder.WriteString("\n\nAttachments:\n")
+	if len(attachments) > 0 {
+		for _, a := range attachments {
+			promptBuilder.WriteString(fmt.Sprintf("- %s (%s)\n", a.Name, a.MIMEType))
+		}
+	} else {
+		promptBuilder.WriteString("- None\n")
+	}
+	text := promptBuilder.String()
+
+	// Extract image URLs from attachments (object-storage URLs)
+	var imageURLs []string
+	for _, a := range attachments {
+		if isImageAttachment(a) && strings.TrimSpace(a.URL) != "" {
+			imageURLs = append(imageURLs, a.URL)
+		}
+	}
+
+	// Call LLM (requires Ark API Key in Connections)
+	prompt, err := GenerateMultimodalPrompt(r.Context(), state.Config, text, imageURLs)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+
+	writeJSON(w, map[string]any{"prompt": prompt})
+}
+
+func isImageAttachment(a RequirementEditorAttachment) bool {
+	if strings.EqualFold(a.Kind, "image") {
+		return true
+	}
+	return strings.HasPrefix(strings.ToLower(a.MIMEType), "image/")
+}
+
+// extractPlainText extracts human-readable text from the editor content JSON.
+func extractPlainText(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	// Try to extract text from common editor formats
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return string(raw)
+	}
+	// Recursively collect text nodes
+	var texts []string
+	collectText(doc, &texts)
+	return strings.TrimSpace(strings.Join(texts, "\n"))
+}
+
+func collectText(node any, texts *[]string) {
+	switch v := node.(type) {
+	case map[string]any:
+		if t, ok := v["text"]; ok {
+			if s, ok := t.(string); ok && strings.TrimSpace(s) != "" {
+				*texts = append(*texts, s)
+			}
+		}
+		for _, val := range v {
+			collectText(val, texts)
+		}
+	case []any:
+		for _, val := range v {
+			collectText(val, texts)
+		}
+	}
 }
 
 func (s Server) handleLLMTest(w http.ResponseWriter, r *http.Request) {

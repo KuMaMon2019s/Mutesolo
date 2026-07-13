@@ -200,7 +200,9 @@ func UpdateRequirementDetails(state *State, projectID string, reqID string, inpu
 			if strings.TrimSpace(input.Title) != "" {
 				req.Title = strings.TrimSpace(input.Title)
 			}
-			req.Description = strings.TrimSpace(input.Description)
+			if strings.TrimSpace(input.Description) != "" {
+				req.Description = strings.TrimSpace(input.Description)
+			}
 			if strings.TrimSpace(input.Priority) != "" {
 				req.Priority = strings.TrimSpace(input.Priority)
 			}
@@ -242,6 +244,48 @@ func AddBranch(state *State, projectID string, name string) (ProjectBranch, bool
 		return branch, true
 	}
 	return ProjectBranch{}, false
+}
+
+// RemoveBranch deletes a branch and all its requirements from the project.
+// Returns true if the branch existed and was removed.
+func RemoveBranch(state *State, projectID string, branchID string) bool {
+	for pi := range state.Projects {
+		if state.Projects[pi].ID != projectID {
+			continue
+		}
+		ensureProjectDefaults(&state.Projects[pi])
+		proj := &state.Projects[pi]
+
+		// Remove branch from branches slice.
+		found := false
+		filtered := make([]ProjectBranch, 0, len(proj.Branches))
+		for _, b := range proj.Branches {
+			if b.ID == branchID {
+				found = true
+				continue
+			}
+			filtered = append(filtered, b)
+		}
+		if !found {
+			return false
+		}
+		proj.Branches = filtered
+
+		// Remove all requirements that belong to this branch.
+		remaining := make([]Requirement, 0, len(proj.Requirements))
+		for _, r := range proj.Requirements {
+			if r.BranchID == branchID || (branchID == "main" && r.BranchID == "") {
+				continue
+			}
+			remaining = append(remaining, r)
+		}
+		proj.Requirements = remaining
+
+		now := time.Now().UTC()
+		proj.UpdatedAt = now
+		return true
+	}
+	return false
 }
 
 func UpdateRequirements(state *State, projectID string, update BoardUpdate) ([]Requirement, bool) {

@@ -31,6 +31,7 @@ const emptyConfig: Config = {
   clawhub_base_url: '',
   clawhub_api_key: '',
   opencode_api_key: '',
+  ark_api_key: '',
   github_token: '',
   llm_locked: false,
 };
@@ -173,6 +174,9 @@ export default function Connections({ ctx: _ctx }: Props) {
         <SettingsSection icon={<KeyIcon className="w-4 h-4" />} title="LLM">
           <SettingsCard title="API Key" description="OpenCode API key for prompt generation">
             <TextInput value={config.opencode_api_key} onChange={v => update('opencode_api_key', v)} type="password" placeholder="opencode_..." />
+          </SettingsCard>
+          <SettingsCard title="Ark API Key" description="火山方舟 Ark API Key for LLM access (Base URL: ark.cn-beijing.volces.com)">
+            <TextInput value={config.ark_api_key} onChange={v => update('ark_api_key', v)} type="password" placeholder="ark_..." />
           </SettingsCard>
           <SettingsCard title="Locked" description="Prevent accidental edits to LLM config">
             <div className="flex justify-end">

@@ -24,6 +24,7 @@ type Config struct {
 	ClawHubBaseURL     string `json:"clawhub_base_url"`
 	ClawHubAPIKey      string `json:"clawhub_api_key"`
 	OpenCodeAPIKey     string `json:"opencode_api_key"`
+	ArkAPIKey          string `json:"ark_api_key"`
 	GitHubToken        string `json:"github_token"`
 	LLMLocked          bool   `json:"llm_locked"`
 }
@@ -170,10 +171,12 @@ type LLMTestRequest struct {
 }
 
 type RequirementEditorPromptRequest struct {
-	Blocks      []map[string]any              `json:"blocks"`
-	TencentDocs []RequirementEditorTencentDoc `json:"tencentDocs"`
-	Attachments []RequirementEditorAttachment `json:"attachments"`
-	PlainText   string                        `json:"plainText"`
+	Blocks        []map[string]any              `json:"blocks"`
+	TencentDocs   []RequirementEditorTencentDoc `json:"tencentDocs"`
+	Attachments   []RequirementEditorAttachment `json:"attachments"`
+	PlainText     string                        `json:"plainText"`
+	ProjectID     string                        `json:"projectId,omitempty"`
+	RequirementID string                        `json:"requirementId,omitempty"`
 }
 
 type RequirementEditorTencentDoc struct {
@@ -233,6 +236,14 @@ type Member struct {
 	Username  string `json:"username"`
 	Status    string `json:"status"`
 	UpdatedAt string `json:"updated_at"`
+}
+
+// User represents a logged-in user.
+type User struct {
+	ID           int64     `json:"id"`
+	Username     string    `json:"username"`
+	PasswordHash string    `json:"-"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // AssetRef records an uploaded asset (image/file) so it can be tracked

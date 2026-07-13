@@ -1,21 +1,23 @@
 import type { ViewId } from '../App';
+import type { User } from '../api/auth';
 
 interface NavRailProps {
   currentView: ViewId;
   onViewChange: (view: ViewId) => void;
   todoRatio: string;
+  user?: User | null;
 }
 
 const navItems: { view: ViewId; label: string; letter: string }[] = [
   { view: 'projectsView', label: 'Projects', letter: 'P' },
   { view: 'boardView', label: 'Board', letter: 'B' },
-  { view: 'connectionsView', label: 'Connections', letter: 'C' },
-  { view: 'runtimesView', label: 'Runtimes', letter: 'R' },
-  { view: 'skillsView', label: 'ClawHub', letter: 'S' },
   { view: 'githubReposView', label: 'GitHub', letter: 'G' },
+  { view: 'skillsView', label: 'ClawHub', letter: 'S' },
+  { view: 'runtimesView', label: 'Runtimes', letter: 'R' },
+  { view: 'connectionsView', label: 'Connections', letter: 'C' },
 ];
 
-export default function NavRail({ currentView, onViewChange, todoRatio }: NavRailProps) {
+export default function NavRail({ currentView, onViewChange, todoRatio, user }: NavRailProps) {
   const pct = parseInt(todoRatio) || 0;
   return (
     <aside className="navRail">
@@ -37,6 +39,17 @@ export default function NavRail({ currentView, onViewChange, todoRatio }: NavRai
           </button>
         ))}
       </nav>
+      {user && (
+        <div className="navRailFooter">
+          <button
+            className="navUserAvatar"
+            title={user.username}
+            onClick={() => onViewChange('profileView')}
+          >
+            {user.username.slice(0, 2).toUpperCase()}
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
