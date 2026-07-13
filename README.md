@@ -2,6 +2,8 @@
 
 > **Orchestrate AI agents like a human team** — manage requirements, generate structured prompts, dispatch tasks, and track progress through a unified Web console.
 
+<img width="1344" height="768" alt="image" src="https://github.com/user-attachments/assets/5e0bb287-7931-4bc9-bd5f-acfc80083079" />
+
 ## What It Does
 
 Mutesolo is a control center for multi-agent AI collaboration. Instead of running agents directly, it gives you a place to:
