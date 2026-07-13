@@ -58,7 +58,7 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 - **API project actions:** `internal/webapp/server.go:648` (handleProjectActions)
 - **Board update:** `internal/webapp/server.go:968` (handleBoardUpdate, routed via handleProjectActions)
 - **Project delete:** `internal/webapp/server.go:602` (handleProjectDelete, routed via handleProjectActions)
-- **Branch management:** `internal/webapp/server.go:694` (handleBranches)
+- **Branch management:** `internal/webapp/server.go:698` (handleBranches), `L727` (handleBranchDetail)
 - **Requirement CRUD:** `internal/webapp/server.go:748-817` (handleRequirements, handleRequirementDetail, handleRequirementUpdate, handleRequirementDelete)
 - **Project image:** `internal/webapp/server.go:564` (handleProjectImage), `L529` (uploadCoverForProject)
 - **Models:** `internal/webapp/models.go:32-47` (Project, ProjectBranch), `L51` (Requirement)
@@ -299,7 +299,7 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 |------|------|----------|
 | Project List | `Projects.tsx:9` | `projectsView` |
 | Board | `Board.tsx:24` | `boardView` |
-| Task Detail | `TaskDetail.tsx:41` | `taskView` |
+| Task Detail | `TaskDetail.tsx:56` | `taskView` |
 | Skills | `Skills.tsx:141` | `skillsView` / `skillDetailView` |
 | Runtimes | `Runtimes.tsx:83` | `runtimesView` |
 | Connections | `Connections.tsx:51` | `connectionsView` |
@@ -341,7 +341,7 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 | `fetchMembers` | `projects.ts` | 73 | Persistent members |
 | `fetchStats` | `projects.ts` | 77 | Member stats |
 | `fetchClawHubSkills` | `projects.ts` | 85 | Skill list |
-| `fetchClawHubSkillDetail` | `projects.ts` | 113 | Skill detail |
+| `fetchClawHubSkillDetail` | `projects.ts` | 117 | Skill detail |
 | `installSkill` | `projects.ts` | 121 | Install skill |
 | `fetchPluginRuntimes` | `projects.ts` | 128 | Runtime list |
 | `fetchGitHubRepos` | `github.ts` | 32 | List GitHub repos |
