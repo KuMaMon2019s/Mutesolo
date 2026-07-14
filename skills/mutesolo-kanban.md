@@ -1,6 +1,6 @@
 ---
 name: mutesolo-kanban
-description: Use when user in Discord wants to operate Mutesolo Kanban board with informal Chinese/English prompts. Translates natural language into mcp_mutesolo tool calls.
+description: Use when user in Discord wants to operate Mutesolo Kanban board with informal prompts. Translates natural language into mcp_mutesolo tool calls.
 version: 1.0.0
 author: Panda
 license: MIT
@@ -17,7 +17,7 @@ Translates informal user prompts into structured `mcp_mutesolo_*` tool calls so 
 ## When to Use
 
 - User says anything about Mutesolo tasks, kanban, projects, or status changes
-- User mentions: "task", "project", "kanban", "move to", "done", "todo", "backlog", "in progress"
+- User mentions: "task", "project", "kanban", "move to", "done", "backlog", "todo", "in progress"
 - User asks about agent/task statistics or board view
 
 ## Status Mapping
@@ -26,16 +26,16 @@ Mutesolo Kanban has 4 columns. Display names are human-facing; code values are t
 
 | Column Display | Meaning | Code Value | Status Definition |
 |----------------|---------|------------|-------------------|
-| BACKLOG | Backlog / Todo Pool | `draft` | Draft — Requirement just created, not yet assigned |
-| TO DO | To Do | `sent` | Assigned — Dispatched to Agent, awaiting execution |
-| IN PROGRESS | In Progress / Processing | `in_progress` | Executing — Agent is currently working on it |
-| DONE | Completed / Finished | `closed` | Closed — Task completed and archived |
+| BACKLOG | Backlog / Draft pool | `draft` | Requirement just created, not yet dispatched |
+| TO DO | To Do | `sent` | Dispatched to Agent, awaiting execution |
+| IN PROGRESS | In Progress / Processing | `in_progress` | Agent is currently working on it |
+| DONE | Completed / Finished | `closed` | Task completed and archived |
 
 ### Natural Language → Code Value
 
 | User can say... | → code value |
 |---|---|
-| BACKLOG / todo pool / backlog / draft / not assigned yet | `draft` |
+| BACKLOG / backlog / draft / not assigned yet | `draft` |
 | TO DO / to do / need to do / assigned / waiting for agent | `sent` |
 | IN PROGRESS / in progress / processing / doing | `in_progress` |
 | DONE / completed / done / finished / closed | `closed` |
@@ -100,6 +100,33 @@ mcp_mutesolo_list_tasks(project_id, status="<status>")
 3. **Title matching is case-insensitive.** "new Tom" matches "new tom" and "New Tom".
 4. **Board shows current state.** Always call `get_board` after a move to confirm.
 5. **Project names are exact.** "new Project" ≠ "new project" — check `list_projects` output.
+6. **MCP server name MUST NOT collide with Hermes built-in toolsets.** Naming the server `kanban` caused tools to be shadowed by Hermes's own `kanban*` built-in tools. The fix: rename to `mutesolo`, a unique project name.
+7. **MCP tools not appearing after reload?** If `/reload-mcp` reports tools registered but they don't appear in function list, check for Tool Search deferral. Use `/reset` for a fresh session.
+
+## Hermes MCP Integration Patterns
+
+### Configuration (write directly to config.yaml)
+
+Hermes `mcp add` is interactive — use direct config writes instead:
+```bash
+hermes config set mcp_servers.mutesolo.url "http://localhost:8001/mcp"
+hermes config set mcp_servers.mutesolo.timeout 30
+```
+
+### Verification
+
+```bash
+hermes mcp test mutesolo      # verify connection + tool discovery
+hermes mcp list               # show all configured servers
+```
+
+### Hot Reload
+
+After config changes, use `/reload-mcp` in Discord (NOT gateway restart). This hot-reloads MCP server configs without dropping the conversation.
+
+### Tool Search Interference
+
+If MCP tools are registered but don't appear in the agent's function list, Tool Search (progressive disclosure) may have deferred them. Check by verifying that `mcp-<server>` returns 5+ tools. If it returns 0 but `hermes mcp test` shows them, the tools were shadowed by a name collision — rename the server.
 
 ## Verification Checklist
 
