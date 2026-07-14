@@ -24,10 +24,10 @@ Before touching any code:
 Every review response uses four sections:
 
 ```
-诊断 (Diagnosis)  → Root cause analysis
-方案 (Plan)       → Fix approach and design rationale
-实施 (Implementation) → What files changed, what logic
-验证 (Verification)   → API responses, build status, HTTP codes
+Diagnosis  → Root cause analysis
+Plan       → Fix approach and design rationale
+Implementation → What files changed, what logic
+Verification   → API responses, build status, HTTP codes
 ```
 
 This lets the project lead distinguish between "design issue" and "implementation drift."
