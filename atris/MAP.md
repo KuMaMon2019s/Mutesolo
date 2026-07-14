@@ -10,8 +10,8 @@ rg "export default function" webapps/control-console/src/pages/  # Page componen
 rg "type.*struct" internal/webapp/models.go    # Data models (line 8-260)
 rg "HandleFunc" internal/webapp/server.go      # Route table (line 43-75)
 rg "Repository" internal/webapp/repository.go  # Storage interface (line 6)
-rg "@mcp.tool" mcp-server/server.py            # MCP Kanban tools (line 99-302)
-rg "STATUS_LABELS" mcp-server/server.py        # Status constants (line 27-32)
+rg "@mcp.tool" mcp-server/server.py            # MCP Kanban tools (line 101-302)
+rg "STATUS_LABELS" mcp-server/server.py        # Status constants (line 29)
 rg "doGitHubAPI" internal/webapp/github.go     # GitHub REST API client (line 225)
 rg "fetchGitHub" internal/webapp/github.go     # GitHub repos (line 69) + releases fetchers (line 166)
 rg "type Agent" internal/coordination/models.go   # Agent/task models (line 5-91)
@@ -95,16 +95,16 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 ### Feature: ClawHub Skills Browser
 **Purpose:** Browse, search, install skills from private ClawHub
 - **Page:** `webapps/control-console/src/pages/Skills.tsx:141` (Skills list + detail)
-- **API fetch:** `webapps/control-console/src/api/projects.ts:81` (fetchClawHubSkills — 3 retries)
-- **API detail:** `webapps/control-console/src/api/projects.ts:113` (fetchClawHubSkillDetail)
-- **API install:** `webapps/control-console/src/api/projects.ts:117` (installSkill)
+- **API fetch:** `webapps/control-console/src/api/projects.ts:85` (fetchClawHubSkills — 3 retries)
+- **API detail:** `webapps/control-console/src/api/projects.ts:117` (fetchClawHubSkillDetail)
+- **API install:** `webapps/control-console/src/api/projects.ts:121` (installSkill)
 - **Connector:** `internal/webapp/connectors.go` (ListClawHubSkills:133, GetClawHubSkill:190, GetClawHubSkillFiles:245, GetClawHubSkillMarkdown:300)
 - **API handlers:** `internal/webapp/server.go:156` (handleClawHubSkillActions), `L179` (handleClawHubSkillDetail), `L203` (handleClawHubSkillInstall), `L223` (handleClawHubSkillCover), `L480` (handleClawHubSkills)
 
 ### Feature: Plugin Runtimes
 **Purpose:** Display deployed tools/services status
 - **Page:** `webapps/control-console/src/pages/Runtimes.tsx:83` (Runtimes)
-- **API:** `webapps/control-console/src/api/projects.ts:124` (fetchPluginRuntimes)
+- **API:** `webapps/control-console/src/api/projects.ts:128` (fetchPluginRuntimes)
 - **Handler:** `internal/webapp/server.go:314` (handlePluginRuntimes)
 - **Runtime list:** `internal/webapp/runtimes.go:3` (SupportedPluginRuntimes)
 
