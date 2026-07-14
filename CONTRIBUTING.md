@@ -5,7 +5,7 @@
 This project is built with a multi-agent workflow:
 
 ```
-阿宝 (Panda) = Orchestrator
+Agent (Panda) = Orchestrator
   └── Plans, delegates, reviews, verifies, commits
       └── Qwen = Coder
           └── Writes code, runs builds, fixes bugs
