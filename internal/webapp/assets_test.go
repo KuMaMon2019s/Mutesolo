@@ -19,7 +19,7 @@ func TestAssetObjectKeyUsesDateAndExtension(t *testing.T) {
 
 func TestBuildRequirementEditorPromptDoesNotLeakLocalAssetURL(t *testing.T) {
 	prompt := BuildRequirementEditorPrompt(
-		"上传截图",
+		"update image",
 		[]map[string]any{{
 			"type": "image",
 			"props": map[string]any{
