@@ -65,7 +65,7 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 
 ### Feature: Requirement Editor (BlockNote)
 **Purpose:** Rich-text editor embedded via iframe
-- **Editor shell:** `webapps/requirement-editor/src/RequirementEditor.tsx` (RequirementEditor)
+- **Editor shell:** `webapps/requirement-editor/src/RequirementEditor.tsx:142` (RequirementEditor)
 - **PostMessage API:** requestContext handler for host-editor communication
 - **Asset upload:** uploadAsset → POST /api/assets
 - **Iframe CSS:** `webapps/requirement-editor/src/styles.css` (embedded mode height chain)
