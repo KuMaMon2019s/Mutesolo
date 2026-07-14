@@ -14,3 +14,15 @@ webapps/**/.vite/
 webapps/**/*.tsbuildinfo
 webapps/**/vite.config.js
 webapps/**/vite.config.d.ts
+
+# Secrets
+.env
+
+# macOS
+.DS_Store
+
+# Old built assets (not source)
+web/
+
+# Personal assets
+webapps/control-console/public/login-bg.png
