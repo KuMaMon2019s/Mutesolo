@@ -358,12 +358,12 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 | `fetchAIAgentScreenshotMembers` | `projects.ts` | 69 | Widget screenshot |
 | `fetchMembers` | `projects.ts` | 73 | Persistent members |
 | `fetchStats` | `projects.ts` | 77 | Member stats (project/branch filtered) |
-| `fetchAgentWorkload` | `projects.ts` | 104 | Agent workload counts |
-| `fetchAgentTasks` | `projects.ts` | 108 | Tasks per agent |
-| `fetchClawHubSkills` | `projects.ts` | 115 | Skill list |
-| `fetchClawHubSkillDetail` | `projects.ts` | 147 | Skill detail |
-| `installSkill` | `projects.ts` | 151 | Install skill |
-| `fetchPluginRuntimes` | `projects.ts` | 158 | Runtime list |
+| `fetchAgentWorkload` | `projects.ts` | 105 | Agent workload counts |
+| `fetchAgentTasks` | `projects.ts` | 109 | Tasks per agent |
+| `fetchClawHubSkills` | `projects.ts` | 116 | Skill list |
+| `fetchClawHubSkillDetail` | `projects.ts` | 148 | Skill detail |
+| `installSkill` | `projects.ts` | 152 | Install skill |
+| `fetchPluginRuntimes` | `projects.ts` | 159 | Runtime list |
 | `fetchGitHubRepos` | `github.ts` | 32 | List GitHub repos |
 | `fetchGitHubReleases` | `github.ts` | 37 | Repo releases |
 | `fetchMe` | `auth.ts` | 9 | Get current user |
