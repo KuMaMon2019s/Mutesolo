@@ -82,6 +82,37 @@ export async function fetchStats(projectId?: string, branchId?: string): Promise
   return api('/api/stats' + (qs ? '?' + qs : ''));
 }
 
+export type AgentTask = {
+  project_id: string;
+  project_name: string;
+  branch_id: string;
+  branch_name: string;
+  requirement_id: string;
+  title: string;
+  status: string;
+  priority: string;
+};
+
+export type AgentWorkload = {
+  agent: string;
+  backlog: number;
+  todo: number;
+  in_progress: number;
+  done: number;
+  projects: string[];
+};
+
+export async function fetchAgentWorkload(): Promise<AgentWorkload[]> {
+  return api<AgentWorkload[]>('/api/agent-workload');
+}
+
+export async function fetchAgentTasks(member: string, projectId?: string): Promise<{ agent: string; tasks: AgentTask[] }> {
+  const params = new URLSearchParams();
+  params.set('member', member);
+  if (projectId) params.set('project_id', projectId);
+  return api(`/api/agent-tasks?${params.toString()}`);
+}
+
 export async function fetchClawHubSkills() {
   const maxRetries = 2; // 3 total attempts
   let lastError: unknown;

@@ -2129,3 +2129,432 @@ pre {
   transform: scale(1.05);
   box-shadow: 0 0 12px rgba(79, 142, 247, 0.4);
 }
+
+/* ── Workload Dashboard ── */
+.workloadLayout {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 60px);
+  overflow: hidden;
+}
+
+.workloadHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line-soft, #1f252e);
+  flex-shrink: 0;
+}
+
+.workloadHeaderTitle {
+  color: #f2f5f8;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.workloadHeaderSub {
+  color: #8b95a5;
+  font-size: 13px;
+  margin: 2px 0 0;
+}
+
+.workloadPanels {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.workloadAgents {
+  width: 260px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--line-soft, #1f252e);
+  padding: 20px 16px;
+  overflow-y: auto;
+}
+
+.workloadBranchTree {
+  width: 200px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--line-soft, #1f252e);
+  padding: 20px 16px;
+  overflow-y: auto;
+}
+
+.workloadSideTitle {
+  color: #8b95a5;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 14px;
+}
+
+.workloadAgentCard {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s;
+  margin-bottom: 8px;
+}
+
+.workloadAgentCard:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+.workloadAgentCard.active {
+  border-color: var(--blue, #5b8def);
+  background: rgba(91, 141, 239, 0.08);
+}
+
+.workloadAgentRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.workloadAgentAvatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.workloadAgentInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.workloadAgentName {
+  color: #f2f5f8;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.workloadAgentStats {
+  color: #8b95a5;
+  font-size: 12px;
+}
+
+.workloadProgressTrack {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+
+.workloadProgressFill {
+  height: 100%;
+  border-radius: 2px;
+  background: #4dc89a;
+  transition: width 0.3s;
+}
+
+/* ── Branch tree ── */
+.workloadTreeItem {
+  margin-bottom: 1px;
+}
+
+.workloadProjectToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #8b95a5;
+  background: none;
+  border: none;
+  text-align: left;
+  font-size: 15px;
+  transition: all 0.12s;
+}
+
+.workloadProjectToggle:hover {
+  background: rgba(255,255,255,0.04);
+  color: #cdd5df;
+}
+
+.workloadProjectToggle.selected {
+  color: #f2f5f8;
+  font-weight: 700;
+  background: rgba(91, 141, 239, 0.1);
+}
+
+.workloadChevron {
+  color: #8b95a5;
+  font-size: 10px;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+
+.workloadProjectDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #4f8ef7;
+}
+
+.workloadProjectDot.active {
+  background: #ff8b66;
+  box-shadow: 0 0 6px rgba(255, 139, 102, 0.6);
+}
+
+.workloadProjectName {
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workloadSubTree {
+  padding-left: 22px;
+  border-left: 1px solid rgba(255,255,255,0.06);
+  margin-left: 4px;
+}
+
+.workloadBranchItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #6b7685;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-size: 13px;
+  transition: all 0.12s;
+}
+
+.workloadBranchItem:hover {
+  background: rgba(255,255,255,0.04);
+  color: #cdd5df;
+}
+
+.workloadBranchItem.selected {
+  color: #cdd5df;
+  font-weight: 600;
+  background: rgba(79, 142, 247, 0.08);
+}
+
+.workloadBranchDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--faint, #555f70);
+  flex-shrink: 0;
+}
+
+.workloadBranchName {
+  color: var(--muted, #8b95a5);
+  font-size: 12px;
+}
+
+/* ── Task Grid ── */
+.workloadGrid {
+  flex: 1;
+  min-width: 0;
+  padding: 20px 16px;
+  overflow-y: auto;
+}
+
+.workloadGridLoading,
+.workloadGridEmpty {
+  display: grid;
+  place-items: center;
+  min-height: 200px;
+}
+
+.workloadGridFlat {
+  column-count: 3;
+  column-gap: 14px;
+}
+
+@media (max-width: 1100px) {
+  .workloadGridFlat { column-count: 2; }
+}
+
+@media (max-width: 700px) {
+  .workloadGridFlat { column-count: 1; }
+}
+
+/* ── Task Card ── */
+.workloadCard {
+  display: inline-block;
+  width: 100%;
+  break-inside: avoid;
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: var(--card, #1b2028);
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: border 0.15s;
+  margin-bottom: 14px;
+}
+
+.workloadCard:hover {
+  border-color: rgba(255,255,255,0.12);
+}
+
+.workloadCardHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.workloadStatusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.workloadCardStatus {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted, #8b95a5);
+  flex: 1;
+}
+
+.workloadPriorityBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #fff;
+  background: var(--faint, #555f70);
+}
+
+.workloadPriorityBadge[data-priority="high"] {
+  background: #dc3545;
+}
+
+.workloadPriorityBadge[data-priority="medium"] {
+  background: #ff8b66;
+}
+
+.workloadPriorityBadge[data-priority="low"] {
+  background: #5b8def;
+}
+
+.workloadCardTitle {
+  display: block;
+  color: #f2f5f8;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+.workloadCardMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.workloadCardBranch {
+  color: var(--muted, #8b95a5);
+  font-size: 12px;
+  background: rgba(255,255,255,0.03);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.workloadCardProject {
+  color: var(--faint, #555f70);
+  font-size: 12px;
+}
+
+.workloadLoading {
+  display: grid;
+  place-items: center;
+  min-height: 200px;
+}
+
+/* ── Agent Detail ── */
+.agentTaskList {
+  padding: 16px 24px;
+}
+
+.agentProjectBlock {
+  margin-bottom: 20px;
+}
+
+.agentProjectName {
+  color: #f2f5f8;
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.agentBranchBlock {
+  margin-bottom: 12px;
+}
+
+.agentBranchName {
+  color: #cdd5df;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.agentTaskCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 8px;
+}
+
+.agentTaskCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--card, #1b2028);
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: border-color 0.15s;
+}
+
+.agentTaskCard:hover {
+  border-color: rgba(255,255,255,0.12);
+}
+
+.agentTaskStatus {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.agentTaskTitle {
+  color: #f2f5f8;
+  font-size: 14px;
+  font-weight: 500;
+}

@@ -273,8 +273,9 @@ export default function Board({ ctx }: Props) {
                 <div
                   key={member.username}
                   className="memberAvatarItem"
-                  style={{ zIndex: agentMembers.length - idx }}
+                  style={{ zIndex: agentMembers.length - idx, cursor: 'pointer' }}
                   title={`${member.username} · ${member.status}${stat ? ` · ${stat.task_count} tasks` : ''}`}
+                  onClick={() => ctx.selectAgent(member.username)}
                 >
                   <div
                     className="memberAvatarFace"

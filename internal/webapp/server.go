@@ -47,6 +47,8 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/api/ai-agent/screenshot-members", s.handleAIAgentScreenshotMembers)
 	mux.HandleFunc("/api/members", s.handleMembers)
 	mux.HandleFunc("/api/stats", s.handleStats)
+	mux.HandleFunc("/api/agent-workload", s.handleAgentWorkload)
+	mux.HandleFunc("/api/agent-tasks", s.handleAgentTasks)
 	mux.HandleFunc("/api/discord/members", s.handleDiscordMembers)
 	mux.HandleFunc("/api/tailscale/devices", s.handleTailscaleDevices)
 	mux.HandleFunc("/api/clawhub/skills", s.handleClawHubSkills)
@@ -1168,6 +1170,156 @@ func (s Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, stats)
+}
+
+// handleAgentWorkload returns task counts per agent across all projects.
+func (s Server) handleAgentWorkload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	state, err := s.store.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	type AgentWorkload struct {
+		Agent      string   `json:"agent"`
+		Backlog    int      `json:"backlog"`
+		Todo       int      `json:"todo"`
+		InProgress int      `json:"in_progress"`
+		Done       int      `json:"done"`
+		Projects   []string `json:"projects"`
+	}
+
+	workloads := make(map[string]*AgentWorkload)
+	projectSets := make(map[string]map[string]struct{})
+	for _, proj := range state.Projects {
+		for _, req := range proj.Requirements {
+			member := strings.TrimSpace(req.AssignedMember)
+			if member == "" {
+				continue
+			}
+			wl, ok := workloads[member]
+			if !ok {
+				wl = &AgentWorkload{Agent: member}
+				workloads[member] = wl
+			}
+			switch req.Status {
+			case "draft", "":
+				wl.Backlog++
+			case "sent":
+				wl.Todo++
+			case "in_progress":
+				wl.InProgress++
+			case "closed":
+				wl.Done++
+			}
+			if ps, ok := projectSets[member]; ok {
+				ps[proj.ID] = struct{}{}
+			} else {
+				projectSets[member] = map[string]struct{}{proj.ID: struct{}{}}
+			}
+		}
+	}
+
+	result := make([]AgentWorkload, 0, len(workloads))
+	for _, wl := range workloads {
+		if ps, ok := projectSets[wl.Agent]; ok {
+			for pid := range ps {
+				wl.Projects = append(wl.Projects, pid)
+			}
+		}
+		result = append(result, *wl)
+	}
+
+	writeJSON(w, result)
+}
+
+// handleAgentTasks returns all tasks for a given agent across all projects and branches.
+func (s Server) handleAgentTasks(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	member := r.URL.Query().Get("member")
+	if member == "" {
+		writeError(w, http.StatusBadRequest, "member query param is required")
+		return
+	}
+	projectID := r.URL.Query().Get("project_id")
+
+	state, err := s.store.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	type AgentTask struct {
+		ProjectID      string `json:"project_id"`
+		ProjectName    string `json:"project_name"`
+		BranchID       string `json:"branch_id"`
+		BranchName     string `json:"branch_name"`
+		RequirementID  string `json:"requirement_id"`
+		Title          string `json:"title"`
+		Status         string `json:"status"`
+		Priority       string `json:"priority"`
+	}
+
+	tasks := make([]AgentTask, 0)
+	for _, proj := range state.Projects {
+		branches := proj.Branches
+		if len(branches) == 0 {
+			branches = []ProjectBranch{{ID: "main", Name: "Main"}}
+		}
+		branchMap := make(map[string]string, len(branches))
+		for _, b := range branches {
+			branchMap[b.ID] = b.Name
+		}
+		for _, req := range proj.Requirements {
+			if req.AssignedMember != member {
+				continue
+			}
+			branchName := branchMap[req.BranchID]
+			if branchName == "" {
+				branchName = branchMap["main"]
+			}
+			if branchName == "" {
+				branchName = req.BranchID
+			}
+			if req.Status == "" {
+				req.Status = "draft"
+			}
+			if req.Priority == "" {
+				req.Priority = "no_priority"
+			}
+			tasks = append(tasks, AgentTask{
+				ProjectID:     proj.ID,
+				ProjectName:   proj.Name,
+				BranchID:      req.BranchID,
+				BranchName:    branchName,
+				RequirementID: req.ID,
+				Title:         req.Title,
+				Status:        req.Status,
+				Priority:      req.Priority,
+			})
+		}
+	}
+
+	// Filter by project_id if provided.
+	if projectID != "" {
+		filtered := make([]AgentTask, 0, len(tasks))
+		for _, t := range tasks {
+			if t.ProjectID == projectID {
+				filtered = append(filtered, t)
+			}
+		}
+		tasks = filtered
+	}
+
+	writeJSON(w, map[string]any{"agent": member, "tasks": tasks})
 }
 
 func (s Server) handleGitHubPush(w http.ResponseWriter, r *http.Request) {

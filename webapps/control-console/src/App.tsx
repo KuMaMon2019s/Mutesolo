@@ -14,9 +14,11 @@ import type { AppState, Project, ProjectBranch, Requirement } from './api/state'
 import { fetchState } from './api/state';
 import { fetchConfig, type Config } from './api/config';
 import type { User } from './api/auth';
+import AgentDetail from './pages/AgentDetail';
+import Workload from './pages/Workload';
 import { fetchMe } from './api/auth';
 
-export type ViewId = 'projectsView' | 'boardView' | 'taskView' | 'skillsView' | 'skillDetailView' | 'runtimesView' | 'connectionsView' | 'githubReposView' | 'loginView' | 'profileView';
+export type ViewId = 'projectsView' | 'boardView' | 'taskView' | 'skillsView' | 'skillDetailView' | 'runtimesView' | 'connectionsView' | 'githubReposView' | 'loginView' | 'profileView' | 'agentDetailView' | 'workloadView';
 
 export interface AppContextType {
   state: AppState | null;
@@ -25,6 +27,7 @@ export interface AppContextType {
   selectedProject: string;
   selectedBranch: string;
   selectedRequirement: string;
+  selectedAgent: string;
   currentView: ViewId;
   boardTab: 'kanban' | 'branch';
   selectedRequirements: Set<string>;
@@ -32,6 +35,7 @@ export interface AppContextType {
   selectProject: (id: string) => void;
   selectBranch: (id: string) => void;
   selectRequirement: (id: string) => void;
+  selectAgent: (name: string) => void;
   setView: (view: ViewId) => void;
   setBoardTab: (tab: 'kanban' | 'branch') => void;
   toggleRequirementSelection: (id: string, selected: boolean) => void;
@@ -105,6 +109,7 @@ export default function App() {
   const [selectedProject, setSelectedProject] = useState(cached?.selectedProject ?? '');
   const [selectedBranch, setSelectedBranch] = useState(cached?.selectedBranch ?? '');
   const [selectedRequirement, setSelectedRequirement] = useState(cached?.selectedRequirement ?? '');
+  const [selectedAgent, setSelectedAgent] = useState('');
   const [boardTab, setBoardTab] = useState<'kanban' | 'branch'>(cached?.boardTab ?? 'kanban');
   const [selectedRequirements, setSelectedRequirements] = useState<Set<string>>(new Set());
 
@@ -183,6 +188,11 @@ export default function App() {
     setCurrentView(view);
   }, []);
 
+  const selectAgent = useCallback((name: string) => {
+    setSelectedAgent(name);
+    setCurrentView('workloadView');
+  }, []);
+
   const toggleRequirementSelection = useCallback((id: string, selected: boolean) => {
     setSelectedRequirements(prev => {
       const next = new Set(prev);
@@ -244,7 +254,7 @@ export default function App() {
       if (hash.tab === 'branch') setBoardTab('branch');
     }
     const viewId = hash.view as ViewId | undefined;
-    if (viewId && ['projectsView', 'boardView', 'taskView', 'skillsView', 'skillDetailView', 'runtimesView', 'connectionsView', 'githubReposView'].includes(viewId)) {
+    if (viewId && ['projectsView', 'boardView', 'taskView', 'skillsView', 'skillDetailView', 'runtimesView', 'connectionsView', 'githubReposView', 'workloadView'].includes(viewId)) {
       setCurrentView(viewId);
     }
     // Only run on initial load
@@ -258,6 +268,7 @@ export default function App() {
     selectedProject,
     selectedBranch,
     selectedRequirement,
+    selectedAgent,
     currentView,
     boardTab,
     selectedRequirements,
@@ -265,6 +276,7 @@ export default function App() {
     selectProject,
     selectBranch,
     selectRequirement,
+    selectAgent,
     setView,
     setBoardTab,
     toggleRequirementSelection,
@@ -287,6 +299,8 @@ export default function App() {
       case 'githubReposView': return <GitHubRepos ctx={ctx} />;
       case 'loginView': return <Login />;
       case 'profileView': return <Profile ctx={ctx} />;
+      case 'agentDetailView': return <AgentDetail ctx={ctx} />;
+      case 'workloadView': return <Workload ctx={ctx} />;
     }
   };
 
