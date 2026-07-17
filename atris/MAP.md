@@ -5,10 +5,10 @@
 ## Quick Reference
 
 ```
-rg "func handle" internal/webapp/server.go     # HTTP handlers (line 83-1569)
+rg "func handle" internal/webapp/server.go     # HTTP handlers (line 91-1591)
 rg "export default function" webapps/control-console/src/pages/  # Page components
 rg "type.*struct" internal/webapp/models.go    # Data models (line 8-258)
-rg "HandleFunc" internal/webapp/server.go      # Route table (line 44-79)
+rg "HandleFunc" internal/webapp/server.go      # Route table (line 44-80)
 rg "Repository" internal/webapp/repository.go  # Storage interface (line 6)
 rg "@mcp.tool" mcp-server/server.py            # MCP Kanban tools (line 101-260)
 rg "STATUS_LABELS" mcp-server/server.py        # Status constants (line 29)
@@ -18,6 +18,8 @@ rg "type Agent" internal/coordination/models.go   # Agent/task models (line 5-91
 rg "func (CreateTask|MatchTask|AssignTask)" internal/coordination/core.go  # Coordination logic (line 23-69)
 rg "Repository" internal/coordination/repository.go  # Coordination storage interface (line 6)
 rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 227-260)
+rg "export class" extension/src/pages/         # Chrome Extension pages
+rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 ```
 
 ---
@@ -29,7 +31,7 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 - **Entry:** `cmd/mutesolo-web/main.go:16` (main)
 - **Backend selection:** `cmd/mutesolo-web/main.go:100` (resolveBackend — JSON vs SQLite)
 - **Cover migration:** `cmd/mutesolo-web/cover_migration.go:14` (runCoverMigration)
-- **Routes (Go):** `internal/webapp/server.go:44-79` (all HandleFunc registrations)
+- **Routes (Go):** `internal/webapp/server.go:44-80` (all HandleFunc registrations)
 - **Page shell:** `webapps/control-console/src/App.tsx:102` (App — ViewId routing)
 
 ### Feature: Authentication
@@ -57,14 +59,14 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 - **Page:** `webapps/control-console/src/pages/Projects.tsx:9` (Project list + create/delete)
 - **Board:** `webapps/control-console/src/pages/Board.tsx:24` (Kanban board)
 - **Task Detail:** `webapps/control-console/src/pages/TaskDetail.tsx:105` (Requirement editor + save)
-- **API create:** `internal/webapp/server.go:498` (handleProjects)
-- **API project actions:** `internal/webapp/server.go:652` (handleProjectActions)
-- **Board update:** `internal/webapp/server.go:1196` (handleBoardUpdate, routed via handleProjectActions)
-- **Project delete:** `internal/webapp/server.go:606` (handleProjectDelete, routed via handleProjectActions)
-- **Branch management:** `internal/webapp/server.go:702` (handleBranches), `L731` (handleBranchDetail)
-- **Requirement CRUD:** `internal/webapp/server.go:752` (handleRequirements), `L783` (handleRequirementDetail), `L794` (handleRequirementUpdate), `L1015` (handleRequirementDelete), `L1061` (handleRequirementGet)
-- **Requirement by ID:** `internal/webapp/server.go:1061` (handleRequirementGet — standalone /api/requirement endpoint)
-- **Project image:** `internal/webapp/server.go:568` (handleProjectImage), `L533` (uploadCoverForProject), `L559` (picSumCoverURL)
+- **API create:** `internal/webapp/server.go:506` (handleProjects)
+- **API project actions:** `internal/webapp/server.go:660` (handleProjectActions)
+- **Board update:** `internal/webapp/server.go:1218` (handleBoardUpdate, routed via handleProjectActions)
+- **Project delete:** `internal/webapp/server.go:614` (handleProjectDelete, routed via handleProjectActions)
+- **Branch management:** `internal/webapp/server.go:710` (handleBranches), `L739` (handleBranchDetail)
+- **Requirement CRUD:** `internal/webapp/server.go:760` (handleRequirements), `L791` (handleRequirementDetail), `L802` (handleRequirementUpdate), `L1037` (handleRequirementDelete), `L1083` (handleRequirementGet)
+- **Requirement by ID:** `internal/webapp/server.go:1083` (handleRequirementGet — standalone /api/requirement endpoint)
+- **Project image:** `internal/webapp/server.go:576` (handleProjectImage), `L541` (uploadCoverForProject), `L567` (picSumCoverURL)
 - **Models:** `internal/webapp/models.go:32-47` (Project, ProjectBranch), `L51` (Requirement)
 
 ### Feature: Requirement Editor (BlockNote)
@@ -76,32 +78,32 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 
 ### Feature: AI Prompt Generation
 **Purpose:** OpenCode-powered prompt generation from requirements
-- **Handler:** `internal/webapp/server.go:1090` (handlePrompt)
-- **Send prompt:** `internal/webapp/server.go:1160` (handleSendPrompt)
-- **Generate prompt:** `internal/webapp/server.go:1229` (handleGeneratePrompt)
-- **Save prompt to requirement:** `internal/webapp/server.go:1143` (savePromptToRequirement)
+- **Handler:** `internal/webapp/server.go:1112` (handlePrompt)
+- **Send prompt:** `internal/webapp/server.go:1182` (handleSendPrompt)
+- **Generate prompt:** `internal/webapp/server.go:1251` (handleGeneratePrompt)
+- **Save prompt to requirement:** `internal/webapp/server.go:1165` (savePromptToRequirement)
 - **Build input:** `internal/webapp/prompt.go:184` (BuildLLMPromptInput)
 - **OpenCode call:** `internal/webapp/llm.go:107-324` (GenerateOpenCodePrompt, TestOpenCodeConnection, LLMRequestFromConfig, MergeLLMRequest, generateOpenCodePrompt, openCodeCandidateModels, requestOpenCodePrompt, isRetryableOpenCodeModelError, toDataURL, isPublicURL, GenerateMultimodalPrompt, generateArkMultimodalPrompt)
 - **Save artifact:** `internal/webapp/prompt.go:51` (StorePromptArtifact)
 - **Discord message:** `internal/webapp/prompt.go:71-81` (BuildDiscordMessage, BuildDiscordMessageForBot)
 - **Requirement editor prompt:** `internal/webapp/prompt.go:84` (BuildRequirementEditorPrompt)
 - **Prompt helpers:** `internal/webapp/prompt.go:204` (agentDisplayName), `L218` (fallback)
-- **LLM test:** `internal/webapp/server.go:1374` (handleLLMTest), `internal/webapp/llm.go:111` (TestOpenCodeConnection)
+- **LLM test:** `internal/webapp/server.go:1396` (handleLLMTest), `internal/webapp/llm.go:111` (TestOpenCodeConnection)
 - **Multimodal prompt:** `internal/webapp/llm.go:310` (GenerateMultimodalPrompt), `L324` (generateArkMultimodalPrompt)
 
 ### Feature: Requirement Editor Content Processing
 **Purpose:** Parse and transform BlockNote editor content to HTML for prompts/display
-- **Base64 image processing:** `internal/webapp/server.go:856` (processBase64Images)
-- **Attachment parsing:** `internal/webapp/server.go:924` (parseAttachments), `L936` (marshalAttachments)
-- **Editor → HTML:** `internal/webapp/server.go:950` (editorContentToHTMLDescription)
-- **Blocks → HTML:** `internal/webapp/server.go:970` (blocksToHTML), `L994` (docToHTML)
-- **Text extraction:** `internal/webapp/server.go:1003` (extractTextFromContent), `L1328` (extractPlainText), `L1356` (collectText)
-- **Image detection:** `internal/webapp/server.go:1320` (isImageAttachment)
+- **Base64 image processing:** `internal/webapp/server.go:864` (processBase64Images)
+- **Attachment parsing:** `internal/webapp/server.go:946` (parseAttachments), `L958` (marshalAttachments)
+- **Editor → HTML:** `internal/webapp/server.go:972` (editorContentToHTMLDescription)
+- **Blocks → HTML:** `internal/webapp/server.go:992` (blocksToHTML), `L1016` (docToHTML)
+- **Text extraction:** `internal/webapp/server.go:1025` (extractTextFromContent), `L1350` (extractPlainText), `L1378` (collectText)
+- **Image detection:** `internal/webapp/server.go:1342` (isImageAttachment)
 
 ### Feature: Connections / Config
 **Purpose:** Manage API keys, URLs, LLM settings
 - **Page:** `webapps/control-console/src/pages/Connections.tsx:51` (Connections)
-- **Config API:** `internal/webapp/server.go:339` (handleConfig)
+- **Config API:** `internal/webapp/server.go:347` (handleConfig)
 - **Config model:** `internal/webapp/models.go:15-28` (Config struct)
 - **Storage:** SQLite config table + JSON web-state.json
 - **Frontend API:** `webapps/control-console/src/api/config.ts:20-24` (fetchConfig, saveConfig)
@@ -113,46 +115,48 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 - **API detail:** `webapps/control-console/src/api/projects.ts:148` (fetchClawHubSkillDetail)
 - **API install:** `webapps/control-console/src/api/projects.ts:152` (installSkill)
 - **Connector:** `internal/webapp/connectors.go` (ListClawHubSkills:133, GetClawHubSkill:190, GetClawHubSkillFiles:245, GetClawHubSkillMarkdown:300)
-- **API handlers:** `internal/webapp/server.go:160` (handleClawHubSkillActions), `L183` (handleClawHubSkillDetail), `L207` (handleClawHubSkillInstall), `L227` (handleClawHubSkillCover), `L484` (handleClawHubSkills)
+- **API handlers:** `internal/webapp/server.go:168` (handleClawHubSkillActions), `L191` (handleClawHubSkillDetail), `L215` (handleClawHubSkillInstall), `L235` (handleClawHubSkillCover), `L492` (handleClawHubSkills)
 
 ### Feature: Plugin Runtimes
 **Purpose:** Display deployed tools/services status
 - **Page:** `webapps/control-console/src/pages/Runtimes.tsx:83` (Runtimes)
 - **API:** `webapps/control-console/src/api/projects.ts:159` (fetchPluginRuntimes)
-- **Handler:** `internal/webapp/server.go:318` (handlePluginRuntimes)
+- **Handler:** `internal/webapp/server.go:326` (handlePluginRuntimes)
 - **Runtime list:** `internal/webapp/runtimes.go:3` (SupportedPluginRuntimes)
 
 ### Feature: AI Agent Status
 **Purpose:** Discord member tracking, agent online status, workload, tasks
-- **Status API:** `internal/webapp/server.go:392` (handleAIAgentStatus), `L401` (handleAIAgentScreenshotMembers)
-- **Workload API:** `internal/webapp/server.go:1420` (handleAgentWorkload) — task counts per agent
-- **Agent tasks API:** `internal/webapp/server.go:1486` (handleAgentTasks) — all tasks for a given agent
-- **Members:** `internal/webapp/server.go:443` (handleMembers), `L456` (handleDiscordMembers)
+- **Status API:** `internal/webapp/server.go:400` (handleAIAgentStatus), `L409` (handleAIAgentScreenshotMembers)
+- **Workload API:** `internal/webapp/server.go:1442` (handleAgentWorkload) — task counts per agent
+- **Agent tasks API:** `internal/webapp/server.go:1508` (handleAgentTasks) — all tasks for a given agent
+- **Members:** `internal/webapp/server.go:451` (handleMembers), `L464` (handleDiscordMembers)
 - **Connectors:** `internal/webapp/connectors.go:36` (CheckAIAgent), `L99` (GetDiscordMembers), `L329` (InstallSkillOnAIAgent), `L344` (SendAIAgentPrompt)
 - **Screenshot members:** `internal/webapp/screenshot.go:48` (CaptureDiscordWidgetMembers), `L34` (GetCachedMembers)
 - **Frontend:** `webapps/control-console/src/api/projects.ts:57-73` (fetchAIAgentStatus, fetchTailscaleDevices, fetchDiscordMembers, fetchAIAgentScreenshotMembers, fetchMembers)
 - **Frontend workload:** `webapps/control-console/src/api/projects.ts:105` (fetchAgentWorkload), `L109` (fetchAgentTasks)
 - **Workload page:** `webapps/control-console/src/pages/Workload.tsx:29` (Workload — agent workload dashboard)
 - **Agent detail page:** `webapps/control-console/src/pages/AgentDetail.tsx:34` (AgentDetail — per-agent task list)
-- **Stats:** `internal/webapp/server.go:1402` (handleStats), `webapps/control-console/src/api/projects.ts:77` (fetchStats)
+- **Stats:** `internal/webapp/server.go:1424` (handleStats), `webapps/control-console/src/api/projects.ts:77` (fetchStats)
 
 ### Feature: Tailscale
 **Purpose:** Tailscale device discovery + AI agent URL resolution
 - **Devices:** `internal/webapp/tailscale.go:33` (ReadTailscaleDevices), `L67` (tailscaleDeviceFromNode)
-- **API:** `internal/webapp/server.go:474` (handleTailscaleDevices)
+- **API:** `internal/webapp/server.go:482` (handleTailscaleDevices)
 - **URL resolution:** `internal/webapp/tailscale.go:100` (aiAgentURLForTailscaleIP)
 
 ### Feature: Storage Layer
 **Purpose:** SQLite + JSON dual backend with Repository pattern
 - **Interface:** `internal/webapp/repository.go:6` (Repository interface)
 - **SQLite impl:** `internal/webapp/sqlite_store.go:17` (SQLiteStore — full CRUD)
-- **JSON impl:** `internal/webapp/json_store.go:17` (JSONStore)
+- **JSON impl:** `internal/webapp/json_store.go:19` (JSONStore, 595 lines)
+- **JSON helpers:** `internal/webapp/json_store.go:117` (UpsertProject), `L158` (AddRequirement), `L190` (UpdateRequirementDetails), `L240` (AddBranch), `L261` (RemoveBranch), `L301` (UpdateRequirements), `L339` (ensureStateDefaults), `L366` (FindProject), `L375` (FindRequirement), `L390` (newID), `L414` (RebuildStats), `L427` (LoadStats), `L451` (computeStatsEntries), `L480` (aggregateStats), `L511` (htmlToBlockNoteJSON)
 - **SQLite bootstrap:** `internal/webapp/sqlite_bootstrap.go:12` (SQLiteBootstrapOptions), `L26` (EnsureSQLiteInitialized)
 - **MinIO client:** `internal/storage/minio.go:17-89` (Client — Upload, Delete, Presigned URLs, DownloadImage)
 - **Asset tracking:** SQLite `asset_refs` table, cascade delete on project/requirement
 - **Asset refs:** `internal/webapp/sqlite_store.go:690-771` (ensureAssetRefsTable, SaveAssetRef, GetAssetRefsByProject, GetAssetRefsByRequirement, DeleteAssetRefsByRequirement, DeleteAssetRefsByProject)
-- **Asset ref dispatch:** `internal/webapp/server.go:1601-1695` (Server.saveAssetRef, getAssetRefsByProject, getAssetRefsByRequirement, deleteAssetRefsAndMinIO, deleteAssetRefsByProject, deleteAssetRefsByRequirement — dual-backend dispatch)
-- **Server helpers:** `internal/webapp/server.go:1585` (runGit), `L1713` (writeJSON), `L1718` (writeError)
+- **Asset ref dispatch:** `internal/webapp/server.go:1623-1717` (Server.saveAssetRef, getAssetRefsByProject, getAssetRefsByRequirement, deleteAssetRefsAndMinIO, deleteAssetRefsByProject, deleteAssetRefsByRequirement — dual-backend dispatch)
+- **Server helpers:** `internal/webapp/server.go:1607` (runGit), `L1735` (writeJSON), `L1740` (writeError)
+- **CORS middleware:** `internal/webapp/server.go:1749` (corsMiddleware)
 - **Schema:** `schema.sql` (full DDL)
 
 ### Feature: Toast Notifications
@@ -170,7 +174,7 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 
 ### Feature: Asset Upload
 **Purpose:** Image/file upload to S3/MinIO with local fallback
-- **Handler:** `internal/webapp/server.go:105` (handleAssets)
+- **Handler:** `internal/webapp/server.go:113` (handleAssets)
 - **Storage:** `internal/webapp/assets.go:25` (AssetStorage), `L46` (AssetStorageFromEnv)
 - **Upload:** `internal/webapp/assets.go:59` (Upload), `L90` (writeLocalAsset), `L114` (uploadLocalFallback)
 - **Delete/Cleanup:** `internal/webapp/assets.go:150` (Delete), `L125` (cleanupLocalAssets)
@@ -199,7 +203,7 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 
 ### Feature: GitHub Push
 **Purpose:** Push state changes to configured GitHub repo
-- **Handler:** `internal/webapp/server.go:1569` (handleGitHubPush)
+- **Handler:** `internal/webapp/server.go:1591` (handleGitHubPush)
 - **Frontend:** `webapps/control-console/src/api/projects.ts:53` (pushGitHub)
 - **Route:** `/api/github/push` at server.go:65
 
@@ -218,10 +222,10 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 **Purpose:** Per-agent workload dashboard and task breakdown views
 - **Workload page:** `webapps/control-console/src/pages/Workload.tsx:29` (Workload — bar chart of task counts per agent)
 - **Agent detail page:** `webapps/control-console/src/pages/AgentDetail.tsx:34` (AgentDetail — filtered task list for a single agent)
-- **Workload handler:** `internal/webapp/server.go:1420` (handleAgentWorkload — aggregate counts across all projects)
-- **Agent tasks handler:** `internal/webapp/server.go:1486` (handleAgentTasks — tasks filtered by agent+project)
+- **Workload handler:** `internal/webapp/server.go:1442` (handleAgentWorkload — aggregate counts across all projects)
+- **Agent tasks handler:** `internal/webapp/server.go:1508` (handleAgentTasks — tasks filtered by agent+project)
 - **Frontend API:** `webapps/control-console/src/api/projects.ts:105` (fetchAgentWorkload), `L109` (fetchAgentTasks)
-- **Types (local):** `AgentWorkload` struct at server.go:1251, `AgentTask` struct at server.go:1311
+- **Types (local):** `AgentWorkload` struct at server.go:1273, `AgentTask` struct at server.go:1333
 
 ### Feature: Coordination Layer
 **Purpose:** Agent-task matching, session tracking, event log for CLI coordination
@@ -232,6 +236,22 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 - **SQLite impl:** `internal/coordination/sqlite_store.go:18-312` (SQLiteStore — full CRUD, load/save for all entities)
 - **JSON impl:** `internal/coordination/json_store.go:15-127` (JSONStore)
 - **CLI consumer:** `cmd/opclawctl/main.go:58` (openRepository → coordination.Repository), `L75` (resolveCoordBackend)
+
+### Feature: Chrome Extension (v0.5.0)
+**Purpose:** Side-panel extension for mobile-friendly Kanban workflow access
+- **Framework:** WXT (`extension/wxt.config.ts:3`)
+- **Background:** `extension/src/entrypoints/background.ts:1` (defineBackground — service worker)
+- **Side panel:** `extension/src/entrypoints/sidepanel.html` (side panel entry point)
+- **Router:** `extension/src/lib/router.ts:13` (Router class — client-side SPA routing between login/workload/detail/settings)
+- **API client:** `extension/src/lib/api.ts:8-128` (apiFetch, apiGet, apiPost, apiPut, checkAuth, showToast, ToastType — 148 lines)
+- **State store:** `extension/src/lib/store.ts:5-147` (Store class with AgentWorkload interface — 147 lines)
+- **Pages (vanilla TS):**
+  - `extension/src/pages/LoginPage.ts:3` (LoginPage — auth form, 191 lines)
+  - `extension/src/pages/WorkloadPage.ts:93` (WorkloadPage — agent workload dashboard, 558 lines)
+  - `extension/src/pages/DetailPage.ts:58` (DetailPage — task detail view, 939 lines)
+  - `extension/src/pages/SettingsPage.ts:4` (SettingsPage — config/connection, 137 lines)
+- **Built output:** `extension/.output/chrome-mv3/` (packaged extension)
+- **Distributable:** `extension/mutesolo-extension-v0.5.0.zip`
 
 ---
 
@@ -244,6 +264,7 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 | `cmd/opclawctl/main.go` | 16 | CLI main |
 | `webapps/control-console/src/App.tsx` | 102 | React app root (ViewId routing) |
 | `webapps/requirement-editor/src/RequirementEditor.tsx` | 155 | Editor component |
+| `extension/src/entrypoints/background.ts` | 1 | Chrome extension service worker |
 
 ### Data Models (all in internal/webapp/models.go)
 | Struct | Line | Purpose |
@@ -296,29 +317,29 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 ### HTTP Routes
 | Method | Path | Handler | File:Line |
 |--------|------|---------|-----------|
-| GET | / | handleControlConsole | server.go:83 |
-| GET/POST | /api/state | handleState | server.go:326 |
-| GET/PUT | /api/config | handleConfig | server.go:339 |
-| GET | /api/ai-agent/status | handleAIAgentStatus | server.go:392 |
-| GET | /api/ai-agent/screenshot-members | handleAIAgentScreenshotMembers | server.go:401 |
-| GET | /api/members | handleMembers | server.go:443 |
-| GET | /api/stats | handleStats | server.go:1402 |
-| GET | /api/agent-workload | handleAgentWorkload | server.go:1420 |
-| GET | /api/agent-tasks | handleAgentTasks | server.go:1486 |
+| GET | / | handleControlConsole | server.go:91 |
+| GET/POST | /api/state | handleState | server.go:334 |
+| GET/PUT | /api/config | handleConfig | server.go:347 |
+| GET | /api/ai-agent/status | handleAIAgentStatus | server.go:400 |
+| GET | /api/ai-agent/screenshot-members | handleAIAgentScreenshotMembers | server.go:409 |
+| GET | /api/members | handleMembers | server.go:451 |
+| GET | /api/stats | handleStats | server.go:1424 |
+| GET | /api/agent-workload | handleAgentWorkload | server.go:1442 |
+| GET | /api/agent-tasks | handleAgentTasks | server.go:1508 |
 | GET | /api/me | handleMe | auth.go:209 |
-| GET | /api/discord/members | handleDiscordMembers | server.go:456 |
-| GET | /api/tailscale/devices | handleTailscaleDevices | server.go:474 |
-| GET | /api/clawhub/skills | handleClawHubSkills | server.go:484 |
-| GET/POST | /api/clawhub/skills/{id} | handleClawHubSkillActions | server.go:160 |
-| GET | /api/plugin-runtimes | handlePluginRuntimes | server.go:318 |
-| POST | /api/assets | handleAssets | server.go:105 |
+| GET | /api/discord/members | handleDiscordMembers | server.go:464 |
+| GET | /api/tailscale/devices | handleTailscaleDevices | server.go:482 |
+| GET | /api/clawhub/skills | handleClawHubSkills | server.go:492 |
+| GET/POST | /api/clawhub/skills/{id} | handleClawHubSkillActions | server.go:168 |
+| GET | /api/plugin-runtimes | handlePluginRuntimes | server.go:326 |
+| POST | /api/assets | handleAssets | server.go:113 |
 | POST | /api/documents/parse | handleDocumentParse | documents.go:41 |
-| POST | /api/llm/test | handleLLMTest | server.go:1374 |
-| GET/POST | /api/projects | handleProjects | server.go:498 |
-| GET/PUT/DELETE | /api/projects/{id} | handleProjectActions | server.go:652 |
-| GET/PUT | /api/requirement | handleRequirementGet | server.go:1061 |
-| POST | /api/generate-prompt | handleGeneratePrompt | server.go:1229 |
-| POST | /api/github/push | handleGitHubPush | server.go:1569 |
+| POST | /api/llm/test | handleLLMTest | server.go:1396 |
+| GET/POST | /api/projects | handleProjects | server.go:506 |
+| GET/PUT/DELETE | /api/projects/{id} | handleProjectActions | server.go:660 |
+| GET/PUT | /api/requirement | handleRequirementGet | server.go:1083 |
+| POST | /api/generate-prompt | handleGeneratePrompt | server.go:1251 |
+| POST | /api/github/push | handleGitHubPush | server.go:1591 |
 | GET | /api/github/repos | handleGitHubRepos | github.go:257 |
 | GET | /api/github/repos/{owner}/{repo}/releases | handleGitHubReleases | github.go:298 |
 | POST | /auth/login | handleAuthLogin | auth.go:38 |
@@ -384,12 +405,28 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 | `fetchMe` | `auth.ts` | 9 | Get current user |
 | `logout` | `auth.ts` | 19 | Logout / clear session |
 
+### Chrome Extension API Layer
+| Export | File | Line | Purpose |
+|--------|------|------|---------|
+| `apiFetch` | `extension/src/lib/api.ts` | 8 | Core fetch with auth + base URL |
+| `apiGet` | `extension/src/lib/api.ts` | 34 | Typed GET wrapper |
+| `apiPost` | `extension/src/lib/api.ts` | 56 | Typed POST wrapper |
+| `apiPut` | `extension/src/lib/api.ts` | 70 | Typed PUT wrapper |
+| `checkAuth` | `extension/src/lib/api.ts` | 91 | Auth health check |
+| `showToast` | `extension/src/lib/api.ts` | 128 | DOM toast notification |
+| `Store` | `extension/src/lib/store.ts` | 147 | Reactive state store (singleton) |
+| `Router` | `extension/src/lib/router.ts` | 13 | Client-side SPA router |
+| `LoginPage` | `extension/src/pages/LoginPage.ts` | 3 | Login UI |
+| `WorkloadPage` | `extension/src/pages/WorkloadPage.ts` | 93 | Workload dashboard |
+| `DetailPage` | `extension/src/pages/DetailPage.ts` | 58 | Task detail view |
+| `SettingsPage` | `extension/src/pages/SettingsPage.ts` | 4 | Settings UI |
+
 ### Critical Files
 | File | Why |
 |------|-----|
-| `internal/webapp/server.go` | All HTTP handlers, ~1722 lines |
+| `internal/webapp/server.go` | All HTTP handlers, ~1762 lines |
 | `internal/webapp/models.go` | Data structures shared by all layers |
-| `internal/webapp/auth.go` | JWT authentication, login/register, middleware |
+| `internal/webapp/auth.go` | JWT authentication, login/register, middleware (369 lines) |
 | `internal/webapp/repository.go` | Storage abstraction interface |
 | `internal/webapp/sqlite_store.go` | SQLite persistence, ~834 lines |
 | `internal/webapp/json_store.go` | JSON persistence, ~595 lines |
@@ -404,3 +441,6 @@ rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 
 | `internal/coordination/core.go` | Task matching + assignment logic, 196 lines |
 | `internal/coordination/sqlite_store.go` | Coordination SQLite persistence, 322 lines |
 | `internal/webapp/github.go` | GitHub API proxy + cache + handlers, 345 lines |
+| `extension/src/pages/DetailPage.ts` | Chrome extension detail view, 939 lines |
+| `extension/src/pages/WorkloadPage.ts` | Chrome extension workload dashboard, 558 lines |
+| `extension/src/lib/api.ts` | Chrome extension API client, 148 lines |
