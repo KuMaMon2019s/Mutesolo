@@ -29,6 +29,55 @@ function readEditorContext(projectId: string, requirementId: string): EditorCont
   }
 }
 
+// Fallback: request editor context via postMessage when localStorage is empty
+// (e.g. iframe loaded but user hasn't edited yet → onChange never fired → no draft persisted)
+function requestEditorContextViaPostMessage(
+  iframe: HTMLIFrameElement,
+  timeoutMs = 3000
+): Promise<EditorContext> {
+  return new Promise((resolve, reject) => {
+    const requestId = crypto.randomUUID();
+    const handler = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type !== 'Mutesolo.requirementEditor.context') return;
+      if (event.data?.requestId !== requestId) return;
+      window.removeEventListener('message', handler);
+      clearTimeout(timer);
+      resolve((event.data.context as EditorContext) ?? null);
+    };
+    const timer = setTimeout(() => {
+      window.removeEventListener('message', handler);
+      reject(new Error('Editor postMessage timeout'));
+    }, timeoutMs);
+    window.addEventListener('message', handler);
+    iframe.contentWindow?.postMessage(
+      { type: 'Mutesolo.requirementEditor.requestContext', requestId },
+      window.location.origin
+    );
+  });
+}
+
+async function getEditorContext(
+  projectId: string,
+  requirementId: string,
+  iframe: HTMLIFrameElement | null
+): Promise<EditorContext> {
+  // Primary: read from localStorage (fast, synchronous, works for most cases)
+  const cached = readEditorContext(projectId, requirementId);
+  if (cached) return cached;
+
+  // Fallback: request via postMessage (iframe may not have fired onChange yet)
+  if (iframe?.contentWindow) {
+    try {
+      return await requestEditorContextViaPostMessage(iframe);
+    } catch {
+      // iframe not loaded or timed out — proceed without editor content
+    }
+  }
+
+  return null;
+}
+
 // Simple markdown → HTML
 function renderMarkdown(text: string): string {
   let html = text
@@ -84,8 +133,8 @@ export default function TaskDetail({ ctx }: Props) {
     if (!project || !requirement) return;
     setSaving(true);
     try {
-      // Read editor content from localStorage
-      const editorCtx = readEditorContext(project.id, requirement.id);
+      // Read editor content: localStorage primary, postMessage fallback
+      const editorCtx = await getEditorContext(project.id, requirement.id, iframeRef.current);
       const payload: Record<string, unknown> = {
         title,
         priority,
@@ -110,8 +159,8 @@ export default function TaskDetail({ ctx }: Props) {
     setGenerating(true);
     setPromptText('');
     try {
-      // Read editor content from localStorage
-      const editorCtx = readEditorContext(project.id, requirement.id);
+      // Read editor content: localStorage primary, postMessage fallback
+      const editorCtx = await getEditorContext(project.id, requirement.id, iframeRef.current);
       const res = await api<{ prompt: string }>('/api/generate-prompt', {
         method: 'POST',
         body: JSON.stringify({

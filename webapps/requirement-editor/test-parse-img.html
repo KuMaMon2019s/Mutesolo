@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>test tryParseHTMLToBlocks with img</title>
+</head>
+<body>
+  <div id="results"></div>
+  <script type="module">
+    import { BlockNoteEditor } from './node_modules/@blocknote/core/src/editor/BlockNoteEditor.js';
+    
+    const results = document.getElementById('results');
+    
+    function log(msg) {
+      results.innerHTML += '<pre>' + msg + '</pre>';
+    }
+    
+    try {
+      const editor = await BlockNoteEditor.create();
+      
+      // Test 1: Plain img at top level
+      const html1 = '<p>Some text</p><img src="/assets/test.png"><p>More text</p>';
+      const blocks1 = editor.tryParseHTMLToBlocks(html1);
+      log('Test 1 (img between p tags): ' + JSON.stringify(blocks1.map(b => b.type), null, 2));
+      log('Image block props: ' + JSON.stringify(blocks1.find(b => b.type === 'image')?.props));
+      
+      // Test 2: img inside div
+      const html2 = '<div>Some text<img src="/assets/test.png">More text</div>';
+      const blocks2 = editor.tryParseHTMLToBlocks(html2);
+      log('Test 2 (img inside div): ' + JSON.stringify(blocks2.map(b => b.type), null, 2));
+      
+      // Test 3: img with contenteditable wrapper
+      const html3 = '<div>Line one<br><br><img src="/assets/test.png" alt="screenshot"><br>Line two</div>';
+      const blocks3 = editor.tryParseHTMLToBlocks(html3);
+      log('Test 3 (contenteditable style): ' + JSON.stringify(blocks3.map(b => b.type), null, 2));
+      
+      // Test 4: standalone img
+      const html4 = '<img src="/assets/test.png">';
+      const blocks4 = editor.tryParseHTMLToBlocks(html4);
+      log('Test 4 (standalone img): ' + JSON.stringify(blocks4.map(b => b.type), null, 2));
+      
+      // Test 5: multiple imgs
+      const html5 = '<p>Text</p><img src="/assets/a.png"><img src="/assets/b.png"><p>More</p>';
+      const blocks5 = editor.tryParseHTMLToBlocks(html5);
+      log('Test 5 (multiple imgs): ' + JSON.stringify(blocks5.map(b => b.type), null, 2));
+      
+      log('ALL TESTS DONE');
+    } catch(e) {
+      log('ERROR: ' + e.message);
+    }
+  </script>
+</body>
+</html>

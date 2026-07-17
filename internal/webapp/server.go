@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -59,12 +60,14 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/api/llm/test", s.handleLLMTest)
 	mux.HandleFunc("/api/projects", s.handleProjects)
 	mux.HandleFunc("/api/projects/", s.handleProjectActions)
+	mux.HandleFunc("/api/requirement", s.handleRequirementGet)
 	mux.HandleFunc("/api/generate-prompt", s.handleGeneratePrompt)
 	mux.HandleFunc("/api/github/push", s.handleGitHubPush)
 	mux.HandleFunc("/api/github/repos", s.handleGitHubRepos)
 	mux.HandleFunc("/api/github/repos/", s.handleGitHubReleases)
 	// Auth routes (SQLite backend only)
-	if ss, ok := s.store.(*SQLiteStore); ok {
+	ss, isSQLite := s.store.(*SQLiteStore)
+	if isSQLite {
 		mux.Handle("/api/me", RequireUser(ss)(http.HandlerFunc(s.handleMe)))
 		mux.Handle("/auth/password", RequireUser(ss)(http.HandlerFunc(s.handleChangePassword)))
 	} else {
@@ -75,7 +78,14 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/auth/login", s.handleAuthLogin)
 	mux.HandleFunc("/auth/register", s.handleAuthRegister)
 	mux.HandleFunc("/auth/logout", s.handleAuthLogout)
-	return mux
+
+	// Apply middleware: AuthAPI protects write operations (SQLite only),
+	// CORS is always applied.
+	var h http.Handler = mux
+	if isSQLite {
+		h = AuthAPI(ss)(h)
+	}
+	return corsMiddleware(h)
 }
 
 func (s Server) handleControlConsole(w http.ResponseWriter, r *http.Request) {
@@ -799,6 +809,38 @@ func (s Server) handleRequirementUpdate(w http.ResponseWriter, r *http.Request, 
 		writeError(w, http.StatusBadRequest, "requirement title is required")
 		return
 	}
+
+	// Convert any base64 images in Extension's Description to MinIO URLs.
+	if strings.TrimSpace(input.Description) != "" {
+		converted, attachments, err := processBase64Images(r.Context(), input.Description, projectID, reqID)
+		if err != nil {
+			// Log but continue — base64 images stay as-is on failure.
+			log.Printf("process base64 images in description for %s/%s: %v", projectID, reqID, err)
+		} else {
+			input.Description = converted
+			// Append new attachment refs to existing ones.
+			if len(attachments) > 0 {
+				existing := parseAttachments(input.Attachments)
+				existing = append(existing, attachments...)
+				input.Attachments = marshalAttachments(existing)
+				// Save AssetRef for cleanup tracking.
+				for _, att := range attachments {
+					ref := AssetRef{
+						AssetID:       att.ID,
+						ProjectID:     projectID,
+						RequirementID: reqID,
+						StorageKey:    att.StorageKey,
+						URL:           att.URL,
+						Source:        att.Source,
+					}
+					if err := s.saveAssetRef(ref); err != nil {
+						log.Printf("save asset ref %s: %v", att.ID, err)
+					}
+				}
+			}
+		}
+	}
+
 	state, err := s.store.Load()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -814,6 +856,182 @@ func (s Server) handleRequirementUpdate(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	writeJSON(w, req)
+}
+
+// processBase64Images scans HTML for base64 data URIs in <img> tags,
+// uploads each to the asset storage, and returns HTML with the local
+// asset URLs replacing the base64 src attributes.
+func processBase64Images(ctx context.Context, htmlContent, projectID, reqID string) (string, []RequirementEditorAttachment, error) {
+	// Match full <img> tags containing a data:image/...;base64,... src.
+	imgTagRe := regexp.MustCompile(`<img[^>]*\ssrc\s*=\s*["'](data:image/[^"']+;base64,[^"']+)["'][^>]*>`)
+	srcRe := regexp.MustCompile(`src\s*=\s*["'](data:image/[^"']+;base64,[^"']+)["']`)
+	storage := AssetStorageFromEnv()
+	var attachments []RequirementEditorAttachment
+
+	result := imgTagRe.ReplaceAllStringFunc(htmlContent, func(match string) string {
+		sm := srcRe.FindStringSubmatch(match)
+		if len(sm) < 2 {
+			return match
+		}
+		dataURI := sm[1]
+
+		// Split "image/png;base64,<data>"
+		parts := strings.SplitN(strings.TrimPrefix(dataURI, "data:"), ";base64,", 2)
+		if len(parts) != 2 {
+			return match
+		}
+		mimeType := parts[0]
+		b64data := parts[1]
+
+		imageData, err := base64.StdEncoding.DecodeString(b64data)
+		if err != nil {
+			log.Printf("decode base64 image: %v", err)
+			return match
+		}
+
+		// Determine extension from MIME type.
+		ext := ".png"
+		switch {
+		case strings.Contains(mimeType, "jpeg") || strings.Contains(mimeType, "jpg"):
+			ext = ".jpg"
+		case strings.Contains(mimeType, "gif"):
+			ext = ".gif"
+		case strings.Contains(mimeType, "webp"):
+			ext = ".webp"
+		case strings.Contains(mimeType, "svg"):
+			ext = ".svg"
+		case strings.Contains(mimeType, "bmp"):
+			ext = ".bmp"
+		}
+
+		result, err := storage.Upload(ctx, "image"+ext, mimeType, imageData)
+		if err != nil {
+			log.Printf("upload base64 image to storage: %v", err)
+			return match
+		}
+
+		// Normalize URL to relative /assets/ path.
+		// The storage always returns /assets/... but guard against
+		// absolute URLs that might appear in edge cases.
+		assetURL := result.URL
+		if !strings.HasPrefix(assetURL, "/assets/") {
+			if idx := strings.Index(assetURL, "/assets/"); idx > 0 {
+				// Strip scheme + host prefix: https://host/assets/... -> /assets/...
+				assetURL = assetURL[idx:]
+			} else if strings.HasPrefix(assetURL, "/") {
+				// Absolute path without /assets/ prefix: /foo/bar -> /assets/foo/bar
+				assetURL = "/assets" + assetURL
+			}
+		}
+
+		attachments = append(attachments, RequirementEditorAttachment{
+			ID:         result.ID,
+			Name:       "image" + ext,
+			MIMEType:   mimeType,
+			Size:       int64(len(imageData)),
+			Kind:       "image",
+			URL:        assetURL,
+			StorageKey: result.StorageKey,
+			Source:     "extension-base64",
+		})
+
+		// Replace the src attribute with the new URL.
+		return srcRe.ReplaceAllString(match, `src="`+assetURL+`"`)
+	})
+
+	return result, attachments, nil
+}
+
+// parseAttachments unmarshals a json.RawMessage into []RequirementEditorAttachment.
+func parseAttachments(raw json.RawMessage) []RequirementEditorAttachment {
+	if len(raw) == 0 {
+		return nil
+	}
+	var attachments []RequirementEditorAttachment
+	if err := json.Unmarshal(raw, &attachments); err != nil {
+		return nil
+	}
+	return attachments
+}
+
+// marshalAttachments marshals []RequirementEditorAttachment to json.RawMessage.
+func marshalAttachments(attachments []RequirementEditorAttachment) json.RawMessage {
+	if len(attachments) == 0 {
+		return nil
+	}
+	data, err := json.Marshal(attachments)
+	if err != nil {
+		return nil
+	}
+	return json.RawMessage(data)
+}
+
+// editorContentToHTMLDescription converts BlockNote JSON editor content
+// into an HTML string suitable for the Description field (Extension readable).
+// It extracts both plain text and image URLs.
+func editorContentToHTMLDescription(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+
+	// Try array format (standard BlockNote blocks).
+	var blocks []map[string]any
+	if err := json.Unmarshal(raw, &blocks); err == nil {
+		return blocksToHTML(blocks)
+	}
+
+	// Try legacy object format.
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err == nil {
+		return docToHTML(doc)
+	}
+
+	return ""
+}
+
+func blocksToHTML(blocks []map[string]any) string {
+	var parts []string
+	for _, block := range blocks {
+		blockType, _ := block["type"].(string)
+		switch blockType {
+		case "image":
+			if props, ok := block["props"].(map[string]any); ok {
+				if url, ok := props["url"].(string); ok && url != "" {
+					parts = append(parts, fmt.Sprintf(`<img src="%s" />`, url))
+				}
+			}
+		default:
+			// Extract text content for paragraph/heading/etc.
+			if content, ok := block["content"].([]any); ok {
+				text := extractTextFromContent(content)
+				if text != "" {
+					parts = append(parts, fmt.Sprintf("<p>%s</p>", text))
+				}
+			}
+		}
+	}
+	return strings.Join(parts, "")
+}
+
+func docToHTML(doc map[string]any) string {
+	var texts []string
+	collectText(doc, &texts)
+	if len(texts) == 0 {
+		return ""
+	}
+	return "<p>" + strings.Join(texts, "</p><p>") + "</p>"
+}
+
+func extractTextFromContent(content []any) string {
+	var texts []string
+	for _, item := range content {
+		if m, ok := item.(map[string]any); ok {
+			if t, ok := m["text"].(string); ok && strings.TrimSpace(t) != "" {
+				texts = append(texts, t)
+			}
+		}
+	}
+	return strings.Join(texts, "")
 }
 
 func (s Server) handleRequirementDelete(w http.ResponseWriter, r *http.Request, projectID string, reqID string) {
@@ -859,6 +1077,36 @@ func (s Server) handleRequirementDelete(w http.ResponseWriter, r *http.Request, 
 	s.deleteAssetRefsAndMinIO(assetRefs, projectID, reqID)
 
 	writeJSON(w, map[string]string{"status": "deleted", "requirement_id": reqID})
+}
+
+// handleRequirementGet: GET /api/requirement?project_id=...&requirement_id=...
+func (s Server) handleRequirementGet(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	projectID := r.URL.Query().Get("project_id")
+	requirementID := r.URL.Query().Get("requirement_id")
+	if projectID == "" || requirementID == "" {
+		writeError(w, http.StatusBadRequest, "project_id and requirement_id are required")
+		return
+	}
+	state, err := s.store.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	project, ok := FindProject(state, projectID)
+	if !ok {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	req, ok := FindRequirement(project, requirementID)
+	if !ok {
+		writeError(w, http.StatusNotFound, "requirement not found")
+		return
+	}
+	writeJSON(w, req)
 }
 
 func (s Server) handlePrompt(w http.ResponseWriter, r *http.Request, projectID string) {
@@ -1027,9 +1275,14 @@ func (s Server) handleGeneratePrompt(w http.ResponseWriter, r *http.Request) {
 		for _, proj := range state.Projects {
 			if proj.ID == input.ProjectID {
 				for _, req := range proj.Requirements {
-					if req.ID == input.RequirementID {
+										if req.ID == input.RequirementID {
+											// Description is the canonical field — both Extension and Web save to it
+											plainText = req.Description
+					// Fallback: extract text from EditorContent if Description is empty
+					if plainText == "" {
 						plainText = extractPlainText(req.EditorContent)
-						if len(req.Attachments) > 0 {
+					}
+					if len(req.Attachments) > 0 {
 							json.Unmarshal(req.Attachments, &attachments)
 						}
 						break
@@ -1040,7 +1293,7 @@ func (s Server) handleGeneratePrompt(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Fallback to user-provided content if not loaded from storage
+	// If requirement IDs not provided, use PlainText from request
 	if plainText == "" {
 		plainText = input.PlainText
 	}
@@ -1098,15 +1351,28 @@ func extractPlainText(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return ""
 	}
-	// Try to extract text from common editor formats
+	// Try object format first (legacy), then array format (BlockNote blocks)
 	var doc map[string]any
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		return string(raw)
+	if err := json.Unmarshal(raw, &doc); err == nil {
+		var texts []string
+		collectText(doc, &texts)
+		if len(texts) > 0 {
+			return strings.TrimSpace(strings.Join(texts, "\n"))
+		}
+		return "" // valid JSON but no text nodes
 	}
-	// Recursively collect text nodes
-	var texts []string
-	collectText(doc, &texts)
-	return strings.TrimSpace(strings.Join(texts, "\n"))
+	// BlockNote stores top-level array of blocks
+	var arr []any
+	if err := json.Unmarshal(raw, &arr); err == nil {
+		var texts []string
+		collectText(arr, &texts)
+		if len(texts) > 0 {
+			return strings.TrimSpace(strings.Join(texts, "\n"))
+		}
+		return "" // valid JSON but no text nodes
+	}
+	// Not valid JSON — treat raw as plain text
+	return strings.TrimSpace(string(raw))
 }
 
 func collectText(node any, texts *[]string) {
@@ -1475,4 +1741,22 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
+// corsMiddleware adds CORS headers to every response and handles preflight.
+// Do NOT add Access-Control-Allow-Credentials: true — it is incompatible
+// with Allow-Origin: * and browsers will reject the response.
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }

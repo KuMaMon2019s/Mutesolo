@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"golang.org/x/net/html"
 )
 
 // JSONStore implements Repository by reading/writing a single JSON file.
@@ -202,6 +204,10 @@ func UpdateRequirementDetails(state *State, projectID string, reqID string, inpu
 			}
 			if strings.TrimSpace(input.Description) != "" {
 				req.Description = strings.TrimSpace(input.Description)
+				// 双向同步: HTML → BlockNote JSON (给 Web 看)
+				if blockJSON := htmlToBlockNoteJSON(req.Description); len(blockJSON) > 0 {
+					req.EditorContent = blockJSON
+				}
 			}
 			if strings.TrimSpace(input.Priority) != "" {
 				req.Priority = strings.TrimSpace(input.Priority)
@@ -214,6 +220,10 @@ func UpdateRequirementDetails(state *State, projectID string, reqID string, inpu
 			}
 			if len(input.EditorContent) > 0 {
 				req.EditorContent = input.EditorContent
+				// 双向同步: BlockNote JSON → HTML (给 Extension 看，含图片)
+				if htmlDesc := editorContentToHTMLDescription(input.EditorContent); htmlDesc != "" {
+					req.Description = htmlDesc
+				}
 			}
 			if len(input.Attachments) > 0 {
 				req.Attachments = input.Attachments
@@ -494,4 +504,92 @@ func aggregateStats(entries []StatsEntry, projectID, branchID string) StatsRespo
 		})
 	}
 	return stats
+}
+
+// htmlToBlockNoteJSON converts HTML (from Extension contenteditable) to BlockNote JSON blocks
+// so the Web editor can display content saved by the Extension.
+func htmlToBlockNoteJSON(htmlContent string) json.RawMessage {
+	trimmed := strings.TrimSpace(htmlContent)
+	if trimmed == "" {
+		return nil
+	}
+
+	type textItem struct {
+		Type   string         `json:"type"`
+		Text   string         `json:"text,omitempty"`
+		Styles map[string]any `json:"styles,omitempty"`
+	}
+	type blockItem struct {
+		Type    string           `json:"type"`
+		Content []textItem       `json:"content,omitempty"`
+		Props   map[string]any   `json:"props,omitempty"`
+	}
+
+	var blocks []blockItem
+	var currentText strings.Builder
+
+	flushText := func() {
+		t := strings.TrimSpace(currentText.String())
+		if t != "" {
+			blocks = append(blocks, blockItem{
+				Type: "paragraph",
+				Content: []textItem{
+					{Type: "text", Text: t, Styles: map[string]any{}},
+				},
+			})
+		}
+		currentText.Reset()
+	}
+
+	z := html.NewTokenizer(strings.NewReader(htmlContent))
+	for {
+		tt := z.Next()
+		switch tt {
+		case html.ErrorToken:
+			flushText()
+			goto done
+		case html.TextToken:
+			currentText.Write(z.Text())
+		case html.StartTagToken, html.SelfClosingTagToken:
+			tn, hasAttr := z.TagName()
+			tag := string(tn)
+			if tag == "br" {
+				currentText.WriteString("\n")
+			} else if tag == "img" && hasAttr {
+				flushText()
+				var src string
+				for {
+					key, val, more := z.TagAttr()
+					if string(key) == "src" {
+						src = string(val)
+					}
+					if !more {
+						break
+					}
+				}
+				if src != "" {
+					blocks = append(blocks, blockItem{
+						Type:  "image",
+						Props: map[string]any{"url": src, "caption": ""},
+					})
+				}
+			}
+		case html.EndTagToken:
+			tn, _ := z.TagName()
+			tag := string(tn)
+			switch tag {
+			case "p", "div", "h1", "h2", "h3", "h4", "h5", "h6", "li":
+				flushText()
+			}
+		}
+	}
+done:
+	if len(blocks) == 0 {
+		return nil
+	}
+	data, err := json.Marshal(blocks)
+	if err != nil {
+		return nil
+	}
+	return json.RawMessage(data)
 }

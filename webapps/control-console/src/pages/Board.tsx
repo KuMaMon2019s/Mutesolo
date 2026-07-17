@@ -403,7 +403,7 @@ export default function Board({ ctx }: Props) {
                               <div className="issueBody">
                                 <div className="issueTitle">{req.title}</div>
                                 <div className="issueRow">
-                                  <span className={`badge ${req.priority || 'low'}`}>{priorityLabel(req.priority)}</span>
+                                  <span className={`badge ${(req.priority || 'low').toLowerCase()}`}>{priorityLabel(req.priority)}</span>
                                 </div>
                                 <div className="issueRow">
                                   {req.assigned_member ? (

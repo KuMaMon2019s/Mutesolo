@@ -63,7 +63,7 @@ body {
   border-radius: 12px;
   background: linear-gradient(135deg, #2a303a, #12161d);
   box-shadow: inset 0 0 0 1px #343b47, 0 0 24px rgba(255, 127, 80, 0.2);
-  display: grid; place-items: center;
+  display: grid; place-items: center; overflow: hidden;
   color: white; font-weight: 800;
   cursor: default; user-select: none;
 }
@@ -2175,7 +2175,7 @@ pre {
 }
 
 .workloadBranchTree {
-  width: 200px;
+  width: 240px;
   flex-shrink: 0;
   border-right: 1px solid var(--line-soft, #1f252e);
   padding: 20px 16px;

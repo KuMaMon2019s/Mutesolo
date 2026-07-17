@@ -21,7 +21,9 @@ export default function NavRail({ currentView, onViewChange, todoRatio, user }: 
   const pct = parseInt(todoRatio) || 0;
   return (
     <aside className="navRail">
-      <div className="navLogo" title="Mutesolo">M</div>
+      <div className="navLogo" title="Mutesolo">
+        <img src="/logo.png" alt="Mutesolo" className="w-full h-full rounded-full object-cover" />
+      </div>
       <div className="statusPill" style={{ '--fill-pct': `${pct}%` } as React.CSSProperties}>
         <strong>{todoRatio}</strong>
         <span>TO DO</span>

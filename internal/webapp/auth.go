@@ -81,7 +81,10 @@ func (s Server) handleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   30 * 24 * 3600,
 	})
-	writeJSON(w, user)
+	writeJSON(w, map[string]any{
+		"user":  user,
+		"token": jwt,
+	})
 }
 
 // handleAuthRegister: POST username + password → create user → JWT cookie
@@ -134,7 +137,10 @@ func (s Server) handleAuthRegister(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   30 * 24 * 3600,
 	})
 	w.WriteHeader(http.StatusCreated)
-	writeJSON(w, user)
+	writeJSON(w, map[string]any{
+		"user":  user,
+		"token": jwt,
+	})
 }
 
 // handleAuthLogout clears the auth cookie.
@@ -272,16 +278,36 @@ func UserFromContext(ctx context.Context) (*User, bool) {
 func RequireUser(store *SQLiteStore) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie("mutesolo_token")
-			if err != nil || cookie.Value == "" {
-				writeError(w, http.StatusUnauthorized, "not authenticated")
-				return
+			var userID int64
+			var jwtErr error
+
+			// 1. Try Bearer token first.
+			authHeader := r.Header.Get("Authorization")
+			triedBearer := strings.HasPrefix(authHeader, "Bearer ")
+
+			if triedBearer {
+				bearerToken := strings.TrimPrefix(authHeader, "Bearer ")
+				userID, jwtErr = parseJWT(bearerToken)
 			}
-			userID, err := parseJWT(cookie.Value)
-			if err != nil {
-				writeError(w, http.StatusUnauthorized, "invalid or expired session")
-				return
+
+			// 2. Bearer failed or not present → fallback to cookie.
+			if !triedBearer || jwtErr != nil {
+				cookie, cookieErr := r.Cookie("mutesolo_token")
+				if cookieErr != nil || cookie.Value == "" {
+					if triedBearer {
+						writeError(w, http.StatusUnauthorized, "invalid or expired session")
+					} else {
+						writeError(w, http.StatusUnauthorized, "not authenticated")
+					}
+					return
+				}
+				userID, jwtErr = parseJWT(cookie.Value)
+				if jwtErr != nil {
+					writeError(w, http.StatusUnauthorized, "invalid or expired session")
+					return
+				}
 			}
+
 			user, err := store.GetUserByID(userID)
 			if err != nil {
 				writeError(w, http.StatusUnauthorized, "user not found")
@@ -289,6 +315,55 @@ func RequireUser(store *SQLiteStore) func(http.Handler) http.Handler {
 			}
 			ctx := context.WithValue(r.Context(), userContextKey, &user)
 			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// extractToken reads the JWT from the Authorization: Bearer header first,
+// then falls back to the mutesolo_token cookie.
+func extractToken(r *http.Request) string {
+	auth := r.Header.Get("Authorization")
+	if strings.HasPrefix(auth, "Bearer ") {
+		return strings.TrimPrefix(auth, "Bearer ")
+	}
+	cookie, err := r.Cookie("mutesolo_token")
+	if err == nil && cookie.Value != "" {
+		return cookie.Value
+	}
+	return ""
+}
+
+// AuthAPI protects mutating API endpoints (POST/PUT/DELETE on /api/*)
+// while allowing GET/HEAD/OPTIONS and /auth/* routes through without auth.
+// This keeps the web console loading normally while protecting data writes.
+func AuthAPI(store *SQLiteStore) func(http.Handler) http.Handler {
+	require := RequireUser(store)
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			path := r.URL.Path
+
+			// Let /auth/* routes through (login, register, logout).
+			if strings.HasPrefix(path, "/auth/") {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// GET/HEAD/OPTIONS are read-only — allow without auth
+			// so the web console can load its initial data.
+			switch r.Method {
+			case http.MethodGet, http.MethodHead, http.MethodOptions:
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// All other methods on /api/* require authentication.
+			if strings.HasPrefix(path, "/api/") {
+				require(next).ServeHTTP(w, r)
+				return
+			}
+
+			// Non-API routes pass through.
+			next.ServeHTTP(w, r)
 		})
 	}
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useEffectEvent } from 'react';
 import type { AppContextType } from '../App';
 import { fetchAgentWorkload, fetchAgentTasks, fetchAIAgentScreenshotMembers, type AgentWorkload, type AgentTask } from '../api/projects';
 import { toast } from '../components/toastStore';
@@ -66,6 +67,44 @@ export default function Workload({ ctx }: Props) {
       .catch(e => toast('error', e instanceof Error ? e.message : 'Failed'))
       .finally(() => setTasksLoading(false));
   }, [selectedAgent, selectedProject, selectedBranch]);
+
+  // ── Polling: refresh tasks every 5s without re-rendering unnecessarily ──
+  const refreshTasks = useEffectEvent(async () => {
+    if (!selectedAgent || !selectedProject || !selectedBranch) return;
+    try {
+      const data = await fetchAgentTasks(selectedAgent, selectedProject);
+      setTasks((data.tasks || []).filter(t => t.branch_id === selectedBranch));
+    } catch {
+      // silent fail on poll
+    }
+  });
+
+  useEffect(() => {
+    const id = setInterval(refreshTasks, 5000);
+    return () => clearInterval(id);
+  }, []);
+
+  // ── Polling: refresh workloads & agents every 15s ──
+  const refreshWorkloads = useEffectEvent(async () => {
+    try {
+      const [membersData, workloads] = await Promise.all([
+        fetchAIAgentScreenshotMembers(),
+        fetchAgentWorkload(),
+      ]);
+      const agents = (membersData.members || []).filter(m => m.username.toLowerCase() !== 'doraemon');
+      setOnlineAgents(agents);
+      const map: Record<string, AgentWorkload> = {};
+      for (const wl of workloads) map[wl.agent] = wl;
+      setWorkloadMap(map);
+    } catch {
+      // silent fail on poll
+    }
+  });
+
+  useEffect(() => {
+    const id = setInterval(refreshWorkloads, 15000);
+    return () => clearInterval(id);
+  }, []);
 
   const handleAgentClick = (agent: string) => setSelectedAgent(agent);
   const handleProjectClick = (projectId: string) => {
