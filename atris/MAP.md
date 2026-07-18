@@ -147,7 +147,7 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 ### Feature: Storage Layer
 **Purpose:** SQLite + JSON dual backend with Repository pattern
 - **Interface:** `internal/webapp/repository.go:6` (Repository interface)
-- **SQLite impl:** `internal/webapp/sqlite_store.go:17` (SQLiteStore — full CRUD)
+- **SQLite impl:** `internal/webapp/sqlite_store.go:17` (SQLiteStore — full CRUD, 834 lines)
 - **JSON impl:** `internal/webapp/json_store.go:19` (JSONStore, 595 lines)
 - **JSON helpers:** `internal/webapp/json_store.go:117` (UpsertProject), `L158` (AddRequirement), `L190` (UpdateRequirementDetails), `L240` (AddBranch), `L261` (RemoveBranch), `L301` (UpdateRequirements), `L339` (ensureStateDefaults), `L366` (FindProject), `L375` (FindRequirement), `L390` (newID), `L414` (RebuildStats), `L427` (LoadStats), `L451` (computeStatsEntries), `L480` (aggregateStats), `L511` (htmlToBlockNoteJSON)
 - **SQLite bootstrap:** `internal/webapp/sqlite_bootstrap.go:12` (SQLiteBootstrapOptions), `L26` (EnsureSQLiteInitialized)
@@ -182,7 +182,7 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 ### Feature: MCP Kanban Server (fastMCP)
 **Purpose:** Expose Kanban via Model Context Protocol to AI agents
 - **Server:** `mcp-server/server.py` (FastMCP('Mutesolo'), 5 tools)
-- **Tools:** list_projects(L101), get_board(L126), task(L176), get_task_detail(L230), list_tasks(L260)
+- **Tools:** list_projects(L102), get_board(L127), task(L177), get_task_detail(L231), list_tasks(L261)
 - **Status labels:** `mcp-server/server.py:29` (STATUS_LABELS)
 - **Docker:** `mcp-server/Dockerfile` (python:3.12, streamable-http:8001)
 - **Compose:** `docker-compose.yml` (mcp-server service)
@@ -233,7 +233,7 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 - **Interface:** `internal/coordination/repository.go:6` (Repository — Load/Save)
 - **WithState:** `internal/coordination/repository.go:17` (WithState — transactional read-modify-write helper)
 - **Core logic:** `internal/coordination/core.go:17-188` (MatchResult:17, CreateTask:23, MatchTask:48, AssignTask:69, bestAgentForTask:104, coverage:132, normalizeCaps:145, uniqueCaps:149, capSet:159, findTaskIndex:170, findAgentIndex:179, upsertSession:188)
-- **SQLite impl:** `internal/coordination/sqlite_store.go:18-312` (SQLiteStore — full CRUD, load/save for all entities)
+- **SQLite impl:** `internal/coordination/sqlite_store.go:18-312` (SQLiteStore — full CRUD, load/save for all entities, 322 lines)
 - **JSON impl:** `internal/coordination/json_store.go:15-127` (JSONStore)
 - **CLI consumer:** `cmd/opclawctl/main.go:58` (openRepository → coordination.Repository), `L75` (resolveCoordBackend)
 
@@ -244,7 +244,7 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 - **Side panel:** `extension/src/entrypoints/sidepanel.html` (side panel entry point)
 - **Router:** `extension/src/lib/router.ts:13` (Router class — client-side SPA routing between login/workload/detail/settings)
 - **API client:** `extension/src/lib/api.ts:8-128` (apiFetch, apiGet, apiPost, apiPut, checkAuth, showToast, ToastType — 148 lines)
-- **State store:** `extension/src/lib/store.ts:5-147` (Store class with AgentWorkload interface — 147 lines)
+- **State store:** `extension/src/lib/store.ts:147` (Store class with AgentWorkload interface)
 - **Pages (vanilla TS):**
   - `extension/src/pages/LoginPage.ts:3` (LoginPage — auth form, 191 lines)
   - `extension/src/pages/WorkloadPage.ts:93` (WorkloadPage — agent workload dashboard, 558 lines)
