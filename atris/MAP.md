@@ -113,9 +113,9 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 ### Feature: ClawHub Skills Browser
 **Purpose:** Browse, search, install skills from private ClawHub
 - **Page:** `webapps/control-console/src/pages/Skills.tsx:141` (Skills list + detail)
-- **API fetch:** `webapps/control-console/src/api/projects.ts:120` (fetchClawHubSkills — 3 retries)
-- **API detail:** `webapps/control-console/src/api/projects.ts:152` (fetchClawHubSkillDetail)
-- **API install:** `webapps/control-console/src/api/projects.ts:156` (installSkill)
+- **API fetch:** `webapps/control-console/src/api/projects.ts:124` (fetchClawHubSkills — 3 retries)
+- **API detail:** `webapps/control-console/src/api/projects.ts:156` (fetchClawHubSkillDetail)
+- **API install:** `webapps/control-console/src/api/projects.ts:160` (installSkill)
 - **Connector:** `internal/webapp/connectors.go` (ListClawHubSkills:186, GetClawHubSkill:243, GetClawHubSkillFiles:298, GetClawHubSkillMarkdown:353)
 - **API handlers:** `internal/webapp/server.go:169` (handleClawHubSkillActions), `L192` (handleClawHubSkillDetail), `L216` (handleClawHubSkillInstall), `L236` (handleClawHubSkillCover), `L539` (handleClawHubSkills)
 
@@ -138,7 +138,7 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 - **Screenshot members:** `internal/webapp/screenshot.go:49` (CaptureDiscordWidgetMembers), `L35` (GetCachedMembers)
 - **Frontend:** `webapps/control-console/src/api/projects.ts:57-77` (fetchAIAgentStatus, fetchTailscaleDevices, fetchDiscordMembers, fetchDiscordGuildMembers, fetchAIAgentScreenshotMembers, fetchMembers)
 - **Frontend agents:** `webapps/control-console/src/api/agents.ts:9` (fetchAgents) — agent list
-- **Frontend workload:** `webapps/control-console/src/api/projects.ts:109` (fetchAgentWorkload), `L113` (fetchAgentTasks)
+- **Frontend workload:** `webapps/control-console/src/api/projects.ts:113` (fetchAgentWorkload), `:117` (fetchAgentTasks)
 - **Workload page:** `webapps/control-console/src/pages/Workload.tsx:30` (Workload — agent workload dashboard)
 - **Agent detail page:** `webapps/control-console/src/pages/AgentDetail.tsx:34` (AgentDetail — per-agent task list)
 - **Stats:** `internal/webapp/server.go:1481` (handleStats), `webapps/control-console/src/api/projects.ts:81` (fetchStats)
@@ -233,7 +233,7 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 ### Feature: GitHub Push
 **Purpose:** Push state changes to configured GitHub repo
 - **Handler:** `internal/webapp/server.go:1648` (handleGitHubPush)
-- **Frontend:** `webapps/control-console/src/api/projects.ts:53` (pushGitHub)
+- **Frontend:** `webapps/control-console/src/api/projects.ts:57` (pushGitHub)
 - **Route:** `/api/github/push` at server.go:66
 
 ### Feature: GitHub Releases Browser
