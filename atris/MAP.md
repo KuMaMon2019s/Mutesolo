@@ -20,6 +20,8 @@ rg "Repository" internal/coordination/repository.go  # Coordination storage inte
 rg "func (generate|parse)JWT" internal/webapp/auth.go  # Auth JWT helpers (line 227-260)
 rg "func main" sync-discord/main.go            # Discord sync queue processor (line 148)
 rg "callMCP|readSSEEvent|findOrCreateCategory" sync-discord/main.go  # Sync handlers (line 578-687)
+rg "func (Sync)" internal/webapp/discord_sync.go  # Discord sync webhook (line 14-65)
+rg "func (FetchGuildMembers)" internal/webapp/connectors.go  # Discord REST API guild members (line 144)
 rg "export class" extension/src/pages/         # Chrome Extension pages
 rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 ```
@@ -103,12 +105,21 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 - **Image detection:** `internal/webapp/server.go:1399` (isImageAttachment)
 
 ### Feature: Connections / Config
-**Purpose:** Manage API keys, URLs, LLM settings
+**Purpose:** Manage API keys, URLs, LLM settings, agent exclusion list
 - **Page:** `webapps/control-console/src/pages/Connections.tsx:55` (Connections)
 - **Config API:** `internal/webapp/server.go:348` (handleConfig)
-- **Config model:** `internal/webapp/models.go:15-28` (Config struct)
+- **Config model:** `internal/webapp/models.go:15-28` (Config struct — includes DiscordBotToken, AgentExclusions, AgentSelf, AgentSelfID, AgentMemberIDs)
 - **Storage:** SQLite config table + JSON web-state.json
 - **Frontend API:** `webapps/control-console/src/api/config.ts:25-29` (fetchConfig, saveConfig)
+- **Agent Exclusion UI:** `webapps/control-console/src/components/TransferBox.tsx:14` (TransferBox — 3-column exclusion picker)
+
+### Feature: Agent Exclusion & Self-Identification
+**Purpose:** Let users exclude certain members from agent list + mark "This is me" for self-identification
+- **Frontend component:** `webapps/control-console/src/components/TransferBox.tsx:14` (TransferBox — members ↔ excluded ↔ self, 3-column UI)
+- **Agent filter API:** `webapps/control-console/src/api/agents.ts:9` (fetchAgents — filters screenshot members minus exclusions)
+- **Config storage:** `agent_exclusions` ([]string), `agent_self` (string), `agent_self_id` (string), `agent_member_ids` (map[string]string) — all persisted in Config
+- **Config merge:** `internal/webapp/server.go:374-416` (mergeStringSlice + agent_member_ids map merge)
+- **Usage:** Connections page loads exclusions+self from config, TransferBox manages them, Done saves to config
 
 ### Feature: ClawHub Skills Browser
 **Purpose:** Browse, search, install skills from private ClawHub
@@ -122,12 +133,12 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 ### Feature: Plugin Runtimes
 **Purpose:** Display deployed tools/services status
 - **Page:** `webapps/control-console/src/pages/Runtimes.tsx:83` (Runtimes)
-- **API:** `webapps/control-console/src/api/projects.ts:163` (fetchPluginRuntimes)
+- **API:** `webapps/control-console/src/api/projects.ts:167` (fetchPluginRuntimes)
 - **Handler:** `internal/webapp/server.go:327` (handlePluginRuntimes)
 - **Runtime list:** `internal/webapp/runtimes.go:3` (SupportedPluginRuntimes)
 
 ### Feature: AI Agent Status
-**Purpose:** Discord member tracking, agent online status, workload, tasks
+**Purpose:** Discord member tracking, agent online status, workload, tasks, guild member lists
 - **Status API:** `internal/webapp/server.go:429` (handleAIAgentStatus), `L438` (handleAIAgentScreenshotMembers)
 - **Workload API:** `internal/webapp/server.go:1499` (handleAgentWorkload) — task counts per agent
 - **Agent tasks API:** `internal/webapp/server.go:1565` (handleAgentTasks) — all tasks for a given agent
@@ -137,7 +148,7 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 - **Guild member types:** `internal/webapp/connectors.go:134` (DiscordGuildMember)
 - **Screenshot members:** `internal/webapp/screenshot.go:49` (CaptureDiscordWidgetMembers), `L35` (GetCachedMembers)
 - **Frontend:** `webapps/control-console/src/api/projects.ts:57-77` (fetchAIAgentStatus, fetchTailscaleDevices, fetchDiscordMembers, fetchDiscordGuildMembers, fetchAIAgentScreenshotMembers, fetchMembers)
-- **Frontend agents:** `webapps/control-console/src/api/agents.ts:9` (fetchAgents) — agent list
+- **Frontend agents:** `webapps/control-console/src/api/agents.ts:9` (fetchAgents) — agent list (members - exclusions)
 - **Frontend workload:** `webapps/control-console/src/api/projects.ts:113` (fetchAgentWorkload), `:117` (fetchAgentTasks)
 - **Workload page:** `webapps/control-console/src/pages/Workload.tsx:30` (Workload — agent workload dashboard)
 - **Agent detail page:** `webapps/control-console/src/pages/AgentDetail.tsx:34` (AgentDetail — per-agent task list)
@@ -156,6 +167,7 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 - **JSON impl:** `internal/webapp/json_store.go:19` (JSONStore)
 - **JSON helpers:** `internal/webapp/json_store.go:117` (UpsertProject), `L158` (AddRequirement), `L190` (UpdateRequirementDetails), `L243` (AddBranch), `L264` (RemoveBranch), `L304` (UpdateRequirements), `L342` (ensureStateDefaults), `L369` (FindProject), `L378` (FindRequirement), `L393` (newID), `L417` (RebuildStats), `L430` (LoadStats), `L454` (computeStatsEntries), `L483` (aggregateStats), `L514` (htmlToBlockNoteJSON)
 - **SQLite bootstrap:** `internal/webapp/sqlite_bootstrap.go:12` (SQLiteBootstrapOptions), `L26` (EnsureSQLiteInitialized)
+- **SQLite migration:** `internal/webapp/sqlite_store.go:121` (ensureAssignedMemberIDColumn — adds assigned_member_id to requirements table)
 - **MinIO client:** `internal/storage/minio.go:17-89` (Client — Upload, Delete, Presigned URLs, DownloadImage)
 - **Asset tracking:** SQLite `asset_refs` table, cascade delete on project/requirement
 - **Asset refs:** `internal/webapp/sqlite_store.go:750-828` (ensureAssetRefsTable, SaveAssetRef, GetAssetRefsByProject, GetAssetRefsByRequirement, DeleteAssetRefsByRequirement, DeleteAssetRefsByProject)
@@ -170,12 +182,17 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 - **Usage:** `import { toast } from '../components/toastStore'; toast('success', 'Saved');`
 - **Pages using:** TaskDetail, Board, Projects, Connections
 
+### Feature: Confirm Modal
+**Purpose:** Reusable delete confirmation dialog
+- **Component:** `webapps/control-console/src/components/ConfirmModal.tsx:7` (ConfirmModal — overlay + confirm/cancel)
+
 ### Feature: Discord Sync Webhook
 **Purpose:** Send project/requirement creation events to a webhook for Discord notification
 - **Webhook URL:** `internal/webapp/discord_sync.go:14` (DiscordSyncWebhookURL)
 - **Project created:** `internal/webapp/discord_sync.go:23` (SyncProjectCreated)
 - **Req created:** `internal/webapp/discord_sync.go:34` (SyncRequirementCreated)
 - **Send helper:** `internal/webapp/discord_sync.go:48` (sendWebhook)
+- **Trigger points:** `internal/webapp/server.go` (called from handleProjects and handleRequirements as goroutines)
 
 ### Feature: Discord Channel Sync (sync-discord)
 **Purpose:** Process a sync queue to create/manage Discord channels via MCP
@@ -183,7 +200,7 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 - **Entry:** `sync-discord/main.go:148` (main)
 - **Queue processing:** `sync-discord/main.go:173` (processQueue), `L206` (findUnprocessed), `L216` (processEvent)
 - **Requirement handler:** `sync-discord/main.go:234` (handleRequirementCreated)
-- **SSE session:** `sync-discord/main.go:373` (startSSESession), `L431` (extractSessionID), `L447` (closeSSESession)
+- **SSE session:** `sync-discord/main.go:371` (startSSESession), `L431` (extractSessionID), `L447` (closeSSESession)
 - **MCP calls:** `sync-discord/main.go:578` (callMCP), `L615` (readSSEEvent)
 - **Discord helpers:** `sync-discord/main.go:687` (findOrCreateCategory), `L745` (createTextChannel), `L782` (sendWelcomeMessage), `L807` (upsertMemberPerms), `L821` (upsertRolePerms)
 - **Queue I/O:** `sync-discord/main.go:842` (readQueue), `L870` (markProcessed), `L900` (writeQueue)
@@ -253,7 +270,7 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 - **Agent detail page:** `webapps/control-console/src/pages/AgentDetail.tsx:34` (AgentDetail — filtered task list for a single agent)
 - **Workload handler:** `internal/webapp/server.go:1499` (handleAgentWorkload — aggregate counts across all projects)
 - **Agent tasks handler:** `internal/webapp/server.go:1565` (handleAgentTasks — tasks filtered by agent+project)
-- **Frontend API:** `webapps/control-console/src/api/projects.ts:109` (fetchAgentWorkload), `L113` (fetchAgentTasks)
+- **Frontend API:** `webapps/control-console/src/api/projects.ts:113` (fetchAgentWorkload), `L117` (fetchAgentTasks)
 - **Types (local):** `AgentWorkload` struct at server.go:1511, `AgentTask` struct at server.go:1333
 
 ### Feature: Coordination Layer
@@ -300,10 +317,10 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 | Struct | Line | Purpose |
 |--------|------|---------|
 | `State` | 8 | Top-level app state (projects, config, members, asset_refs) |
-| `Config` | 15 | API keys, URLs, LLM settings |
+| `Config` | 15 | API keys, URLs, LLM settings, agent exclusions/self/member IDs |
 | `Project` | 37 | Project metadata with branches + requirements |
 | `ProjectBranch` | 50 | Git branch tracking |
-| `Requirement` | 56 | Task with priority, status, prompt, agent assignment |
+| `Requirement` | 56 | Task with priority, status, prompt, agent assignment, assigned_member_id |
 | `AIAgentStatus` | 74 | Agent online/offline/error state |
 | `DiscordMember` | 84 | Discord guild member info |
 | `TailscaleDevice` | 91 | Tailscale node → device mapping |
@@ -328,6 +345,15 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 | `Member` | 241 | Persistent member record |
 | `User` | 248 | Auth user (id, username, password_hash) |
 | `AssetRef` | 257 | Image/file → project/requirement tracking |
+
+### Config Fields (v5.3.3 additions)
+| Field | Type | Purpose |
+|-------|------|---------|
+| `DiscordBotToken` | string | Discord bot token for REST API calls (guild members) |
+| `AgentExclusions` | []string | Members excluded from agent list |
+| `AgentSelf` | string | Self-identified username ("This is me") |
+| `AgentSelfID` | string | Self-identified Discord user ID |
+| `AgentMemberIDs` | map[string]string | Username → Discord user ID mapping |
 
 ### Coordination Models (all in internal/coordination/models.go)
 | Struct | Line | Purpose |
@@ -439,7 +465,7 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 | `fetchGitHubReleases` | `github.ts` | 37 | Repo releases |
 | `fetchMe` | `auth.ts` | 9 | Get current user |
 | `logout` | `auth.ts` | 19 | Logout / clear session |
-| `fetchAgents` | `agents.ts` | 9 | Fetch agent list |
+| `fetchAgents` | `agents.ts` | 9 | Fetch agent list (members - exclusions) |
 
 ### Chrome Extension API Layer
 | Export | File | Line | Purpose |
@@ -466,15 +492,17 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 | `internal/webapp/repository.go` | Storage abstraction interface |
 | `internal/webapp/sqlite_store.go` | SQLite persistence |
 | `internal/webapp/json_store.go` | JSON persistence |
+| `internal/webapp/discord_sync.go` | Discord sync webhook notifications (65 lines) |
 | `mcp-server/server.py` | fastMCP Kanban server, 5 MCP tools |
 | `webapps/control-console/src/App.tsx` | React router, state management |
 | `webapps/control-console/src/styles.css` | All component CSS |
 | `webapps/control-console/src/api/projects.ts` | All project/agent/skill API calls |
-| `webapps/control-console/src/api/agents.ts` | Agent list API |
+| `webapps/control-console/src/api/agents.ts` | Agent list API (members - exclusions) |
+| `webapps/control-console/src/components/TransferBox.tsx` | Agent exclusion & self-identification UI (273 lines) |
 | `schema.sql` | Database schema |
 | `cmd/mutesolo-web/main.go` | Server entry point |
 | `cmd/opclawctl/main.go` | CLI entry point, 259 lines |
-| `sync-discord/main.go` | Discord sync queue processor, ~900 lines |
+| `sync-discord/main.go` | Discord sync queue processor, ~1000 lines |
 | `internal/coordination/models.go` | Agent/task/session data structures, 98 lines |
 | `internal/coordination/core.go` | Task matching + assignment logic, 196 lines |
 | `internal/coordination/sqlite_store.go` | Coordination SQLite persistence, 322 lines |
