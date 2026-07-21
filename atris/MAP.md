@@ -510,3 +510,32 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 | `extension/src/pages/DetailPage.ts` | Chrome extension detail view, 939 lines |
 | `extension/src/pages/WorkloadPage.ts` | Chrome extension workload dashboard, 558 lines |
 | `extension/src/lib/api.ts` | Chrome extension API client, 148 lines |
+
+## Feature: Mutesolo-Discord Bidirectional Sync (v0.5.3)
+
+**Purpose:** Auto-create Discord private channels when Mutesolo tasks are created/assigned.
+
+### Webhook layer
+- **Entry:** `internal/webapp/discord_sync.go:14-75` (DiscordSyncWebhookURL, SyncProjectCreated, SyncRequirementCreated)
+
+### sync-discord Go daemon
+- **Entry:** `sync-discord/main.go:148` (main)
+- **Poll:** `sync-discord/main.go:173` (processQueue, 5s)
+- **Pipeline:** `sync-discord/main.go:234` (handleRequirementCreated — bot→member→self→welcome→deny@everyone)
+- **SSE:** `sync-discord/main.go:371` (startSSESession), `sync-discord/main.go:615` (readSSEEvent)
+- **MCP:** `sync-discord/main.go:578` (callMCP → POST to mcp-discord-go)
+- **Channel:** `sync-discord/main.go:687` (findOrCreateCategory), `sync-discord/main.go:745` (createTextChannel)
+- **Self:** `sync-discord/main.go:458` (loadSelfDiscordID → Mutesolo config)
+
+### Frontend: Agent Management
+- **fetchAgents:** `webapps/control-console/src/api/agents.ts:1-26` (members - exclusions, agent_member_ids from config)
+- **TransferBox:** `webapps/control-console/src/components/TransferBox.tsx:1-270` (3-column card selection)
+- **ConfirmModal:** `webapps/control-console/src/components/ConfirmModal.tsx:1-31` (dark delete dialog)
+
+### Config (SQLite key-value)
+- `agent_exclusions`, `agent_self`, `agent_self_id`, `agent_member_ids`, `discord_bot_token`, `discord_guild_id`
+- Model: `internal/webapp/models.go:30-33`
+- Merge: `internal/webapp/server.go:396-415`
+- Persist: `internal/webapp/sqlite_store.go:338-372` (save), `sqlite_store.go:205-213` (load)
+- REST API: `internal/webapp/connectors.go:133-178` (FetchGuildMembers)
+- Endpoint: `internal/webapp/server.go:54` (/api/discord/guild-members)
