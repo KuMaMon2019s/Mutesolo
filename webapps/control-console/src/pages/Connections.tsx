@@ -15,7 +15,8 @@ import { buttonVariants } from '../variants';
 import mergeTW from '../utils/mergeTW';
 import { toast } from '../components/toastStore';
 import { fetchConfig, saveConfig, type Config } from '../api/config';
-import { fetchAIAgentStatus, fetchDiscordMembers, fetchAIAgentScreenshotMembers } from '../api/projects';
+import TransferBox from '../components/TransferBox';
+import { fetchAIAgentStatus, fetchDiscordMembers, fetchDiscordGuildMembers, fetchAIAgentScreenshotMembers } from '../api/projects';
 
 interface Props { ctx: AppContextType }
 
@@ -26,6 +27,7 @@ const emptyConfig: Config = {
   discord_url: '',
   discord_widget_url: '',
   discord_bot_id: '',
+  discord_bot_token: '',
   discord_guild_id: '',
   discord_bot_username: '',
   clawhub_base_url: '',
@@ -34,6 +36,8 @@ const emptyConfig: Config = {
   ark_api_key: '',
   github_token: '',
   llm_locked: false,
+  agent_self_id: '',
+  agent_member_ids: {},
 };
 
 function avatarText(name: string) {
@@ -54,26 +58,30 @@ export default function Connections({ ctx: _ctx }: Props) {
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState('');
   const [aiAgentStatus, setAiAgentStatus] = useState<{ online: boolean; name?: string; presence_count?: number; error?: string } | null>(null);
-  const [discordMembers, setDiscordMembers] = useState<Array<{ username: string; status: string; avatar_url?: string }>>([]);
+  const [discordMembers, setDiscordMembers] = useState<Array<{ id: string; username: string; status: string; avatar_url?: string }>>([]);
   const [screenshotMembers, setScreenshotMembers] = useState<Array<{ username: string; status: string }>>([]);
   const [screenshotLoading, setScreenshotLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [exclusions, setExclusions] = useState<string[]>([]);
+  const [selfIdentified, setSelfIdentified] = useState('');
 
   useEffect(() => {
-    fetchConfig()
-      .then(c => setConfig({ ...emptyConfig, ...c }))
-      .catch(e => setError(e.message));
-  }, []);
+    setScreenshotLoading(true);
+    Promise.all([fetchConfig(), fetchAIAgentScreenshotMembers()])
+      .then(([c, data]) => {
+        setConfig({ ...emptyConfig, ...c });
+        setExclusions(c.agent_exclusions || []);
+        setSelfIdentified(c.agent_self || '');
+        setScreenshotMembers(data.members || []);
+      })
+      .catch(e => setError(e instanceof Error ? e.message : 'Failed'))
+      .finally(() => setScreenshotLoading(false));
 
-  useEffect(() => {
     fetchAIAgentStatus().then(setAiAgentStatus).catch(() => {});
     fetchDiscordMembers().then(data => {
-      setDiscordMembers((data.members || []).filter(m => m.username.toLowerCase() !== 'doraemon'));
+      setDiscordMembers(data.members || []);
     }).catch(() => {});
-    setScreenshotLoading(true);
-    fetchAIAgentScreenshotMembers().then(data => {
-      setScreenshotMembers((data.members || []).filter(m => m.username.toLowerCase() !== 'doraemon'));
-    }).catch(() => {}).finally(() => setScreenshotLoading(false));
   }, []);
 
   const update = useCallback((field: keyof Config, value: string | boolean) => {
@@ -103,6 +111,45 @@ export default function Connections({ ctx: _ctx }: Props) {
     setDrawerOpen(true);
   };
 
+  const handleExclusionsChange = (newExclusions: string[], newSelfIdentified: string) => {
+    setExclusions(newExclusions);
+    setSelfIdentified(newSelfIdentified);
+  };
+
+  const handleExclusionsDone = async () => {
+    // Fetch real Discord IDs via REST API (Bot Token required)
+    let selfID = '';
+    let memberIdMap: Record<string, string> = {};
+    try {
+      const freshData = await fetchDiscordGuildMembers();
+      const members = freshData.members || [];
+      let selfMember = members.find(m => m.username === selfIdentified);
+      selfID = selfMember?.id || '';
+      for (const m of members) {
+        if (m.id) memberIdMap[m.username] = m.id;
+      }
+      // Fallback: if self not found in REST API, look in existing persisted agent_member_ids
+      if (!selfID) {
+        selfID = (config.agent_member_ids || {})[selfIdentified] || '';
+      }
+    } catch { /* Guild API may fail, save without IDs */ }
+
+    const updatedConfig = {
+      ...config,
+      agent_exclusions: exclusions,
+      agent_self: selfIdentified,
+      agent_self_id: selfID,
+      agent_member_ids: memberIdMap,
+    };
+    setConfig(updatedConfig);
+    try {
+      await saveConfig(updatedConfig);
+      toast('success', 'Configuration saved successfully');
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Failed to save configuration');
+    }
+    setTransferOpen(false);
+  };
   return (
     <section id="connectionsView" className="view activeView">
       <div className="max-w-5xl mx-auto">
@@ -154,6 +201,9 @@ export default function Connections({ ctx: _ctx }: Props) {
           <SettingsCard title="Bot ID" description="Discord bot application ID">
             <TextInput value={config.discord_bot_id} onChange={v => update('discord_bot_id', v)} placeholder="Bot ID" />
           </SettingsCard>
+          <SettingsCard title="Bot Token" description="Discord bot token for REST API access (requires GUILD_MEMBERS intent)">
+            <TextInput value={config.discord_bot_token} onChange={v => update('discord_bot_token', v)} type="password" placeholder="Bot token" />
+          </SettingsCard>
           <SettingsCard title="Guild ID" description="Discord server (guild) ID">
             <TextInput value={config.discord_guild_id} onChange={v => update('discord_guild_id', v)} placeholder="Guild ID" />
           </SettingsCard>
@@ -175,7 +225,7 @@ export default function Connections({ ctx: _ctx }: Props) {
           <SettingsCard title="API Key" description="OpenCode API key for prompt generation">
             <TextInput value={config.opencode_api_key} onChange={v => update('opencode_api_key', v)} type="password" placeholder="opencode_..." />
           </SettingsCard>
-          <SettingsCard title="Ark API Key" description="火山方舟 Ark API Key for LLM access (Base URL: ark.cn-beijing.volces.com)">
+          <SettingsCard title="Ark API Key" description="Ark API Key for LLM access">
             <TextInput value={config.ark_api_key} onChange={v => update('ark_api_key', v)} type="password" placeholder="ark_..." />
           </SettingsCard>
           <SettingsCard title="Locked" description="Prevent accidental edits to LLM config">
@@ -194,20 +244,31 @@ export default function Connections({ ctx: _ctx }: Props) {
                 Members detected from the Discord widget via headless screenshot.
               </p>
             </div>
-            <button
-              className={mergeTW(buttonVariants.secondary, "mt-2 sm:mt-0")}
-              disabled={screenshotLoading}
-              onClick={async () => {
+            <div className="flex gap-2">
+              <button
+                className={mergeTW(buttonVariants.secondary, "mt-2 sm:mt-0")}
+                onClick={() => setTransferOpen(true)}
+              >
+                Setting
+              </button>
+              <button
+                className={mergeTW(buttonVariants.secondary, "mt-2 sm:mt-0")}
+                disabled={screenshotLoading}
+                onClick={async () => {
                 setScreenshotLoading(true);
                 try {
-                  const data = await fetchAIAgentScreenshotMembers();
-                  setScreenshotMembers((data.members || []).filter(m => m.username.toLowerCase() !== 'doraemon'));
+                  const [c, data] = await Promise.all([fetchConfig(), fetchAIAgentScreenshotMembers()]);
+                  setConfig({ ...emptyConfig, ...c });
+                  setExclusions(c.agent_exclusions || []);
+                  setSelfIdentified(c.agent_self || '');
+                  setScreenshotMembers(data.members || []);
                 } catch { /* ignore */ }
                 finally { setScreenshotLoading(false); }
               }}
             >
               {screenshotLoading ? 'Refreshing...' : 'Refresh'}
             </button>
+            </div>
           </div>
 
           {/* Status indicator */}
@@ -234,7 +295,7 @@ export default function Connections({ ctx: _ctx }: Props) {
             </div>
           ) : (
             <ul className="divide-y divide-white/5 border border-white/10 rounded-xl bg-white/[0.03]">
-              {screenshotMembers.map((member, idx) => (
+              {screenshotMembers.filter(m => !exclusions.includes(m.username) && m.username !== selfIdentified).map((member, idx) => (
                 <li key={idx} className="px-5 py-4 flex items-start justify-between">
                   <div className="flex gap-3 items-center">
                     {/* Avatar circle */}
@@ -304,6 +365,18 @@ export default function Connections({ ctx: _ctx }: Props) {
           </div>
         </div>
       </div>
+
+      {/* TransferBox Modal */}
+      {transferOpen && (
+        <TransferBox
+          available={screenshotMembers.map(m => m.username).filter(u => !exclusions.includes(u) && u !== selfIdentified)}
+          selected={exclusions}
+          selfIdentified={selfIdentified}
+          onChange={handleExclusionsChange}
+          onClose={() => setTransferOpen(false)}
+          onDone={handleExclusionsDone}
+        />
+      )}
 
       {/* Discord Drawer — only render when open */}
       {drawerOpen && (

@@ -19,6 +19,7 @@ type ScreenshotResult struct {
 
 // ScreenshotMember is a member extracted from the Discord widget screenshot.
 type ScreenshotMember struct {
+	ID       string `json:"id,omitempty"`
 	Username string `json:"username"`
 	Status   string `json:"status"`
 }
@@ -93,6 +94,29 @@ func CaptureDiscordWidgetMembers(ctx context.Context, widgetURL string) Screensh
 			(() => {
 				const members = [];
 				const seen = new Set();
+
+				// Helper: try to extract Discord user ID from an element's ancestors
+				const extractID = (el) => {
+					// Check self + ancestors for data-user-id or href containing user ID
+					let node = el;
+					for (let i = 0; i < 5 && node; i++) {
+						if (node.dataset && node.dataset.userId) return node.dataset.userId;
+						// Avatar image src often contains user ID: /avatars/USER_ID/...
+						const img = node.querySelector ? node.querySelector('img[src*="/avatars/"]') : null;
+						if (img) {
+							const m = img.src.match(/\/avatars\/(\d+)/);
+							if (m) return m[1];
+						}
+						// href like https://discord.com/users/USER_ID
+						if (node.href) {
+							const m = node.href.match(/\/users\/(\d+)/);
+							if (m) return m[1];
+						}
+						node = node.parentElement;
+					}
+					return '';
+				};
+
 				// Filter out section headers and non-username text
 				const skipWords = ['ONLINE', 'MEMBERS', 'DISCORD', 'Hangout', 'MEMBER', '3 Members Online'];
 				document.querySelectorAll('strong').forEach(el => {
@@ -101,7 +125,7 @@ func CaptureDiscordWidgetMembers(ctx context.Context, widgetURL string) Screensh
 						!skipWords.some(w => name.toUpperCase().includes(w.toUpperCase())) &&
 						!seen.has(name)) {
 						seen.add(name);
-						members.push({ username: name, status: 'online' });
+						members.push({ id: extractID(el), username: name, status: 'online' });
 					}
 				});
 				// Fallback: check any element with text content that looks like a username
@@ -118,7 +142,7 @@ func CaptureDiscordWidgetMembers(ctx context.Context, widgetURL string) Screensh
 								if (p && (p.querySelector('img') || p.querySelector('svg') ||
 									p.className.includes('member') || p.className.includes('user'))) {
 									seen.add(text);
-									members.push({ username: text, status: 'online' });
+									members.push({ id: extractID(p), username: text, status: 'online' });
 								}
 							}
 						}
@@ -155,10 +179,12 @@ func parseScreenshotMembers(jsonStr string, members *[]ScreenshotMember) error {
 	}
 	entries := splitJSONArray(jsonStr)
 	for _, entry := range entries {
+		id := extractJSONValue(entry, "id")
 		username := extractJSONValue(entry, "username")
 		status := extractJSONValue(entry, "status")
 		if username != "" {
 			*members = append(*members, ScreenshotMember{
+				ID:       id,
 				Username: username,
 				Status:   statusOrDefault(status),
 			})

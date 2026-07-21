@@ -104,12 +104,16 @@ export default function Projects({ ctx }: Props) {
               <button className={mergeTW(buttonVariants.secondary)} onClick={() => setShowForm(false)}>Close</button>
             </div>
             <div className="formStack">
-              <input
-                placeholder="Project name"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                autoFocus
-              />
+              <div className="inputWithCounter">
+                <input
+                  placeholder="Project name"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  maxLength={100}
+                  autoFocus
+                />
+                <span className="charCounter">{name.length}/100</span>
+              </div>
               <input
                 placeholder="Description"
                 value={description}

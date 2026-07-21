@@ -130,6 +130,59 @@ func (c Connector) GetDiscordMembers(ctx context.Context, guildID string) ([]Dis
 	return members, nil
 }
 
+// DiscordGuildMember represents a member returned by the Discord REST API.
+type DiscordGuildMember struct {
+	User struct {
+		ID       string `json:"id"`
+		Username string `json:"username"`
+	} `json:"user"`
+	Nick string `json:"nick"`
+}
+
+// FetchGuildMembers uses a Bot Token to call the Discord REST API
+// and return the list of guild members with real Discord user IDs.
+func (c Connector) FetchGuildMembers(ctx context.Context, botToken, guildID string) ([]DiscordMember, error) {
+	guildID = strings.TrimSpace(guildID)
+	if guildID == "" {
+		return nil, fmt.Errorf("configure a Discord Guild ID")
+	}
+	botToken = strings.TrimSpace(botToken)
+	if botToken == "" {
+		return nil, fmt.Errorf("configure a Discord Bot Token")
+	}
+	url := fmt.Sprintf("https://discord.com/api/v10/guilds/%s/members?limit=100", guildID)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bot "+botToken)
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("discord api returned HTTP %d", resp.StatusCode)
+	}
+
+	var apiMembers []DiscordGuildMember
+	if err := json.NewDecoder(resp.Body).Decode(&apiMembers); err != nil {
+		return nil, err
+	}
+	members := make([]DiscordMember, 0, len(apiMembers))
+	for _, m := range apiMembers {
+		username := m.User.Username
+		if m.Nick != "" {
+			username = m.Nick
+		}
+		members = append(members, DiscordMember{
+			ID:       m.User.ID,
+			Username: username,
+		})
+	}
+	return members, nil
+}
+
 func (c Connector) ListClawHubSkills(ctx context.Context, baseURL, apiKey string) ([]SkillSummary, error) {
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if baseURL == "" || strings.Contains(baseURL, "example.com") {

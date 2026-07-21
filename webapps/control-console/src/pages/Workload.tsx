@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useEffectEvent } from 'react';
 import type { AppContextType } from '../App';
-import { fetchAgentWorkload, fetchAgentTasks, fetchAIAgentScreenshotMembers, type AgentWorkload, type AgentTask } from '../api/projects';
+import { fetchAgentWorkload, fetchAgentTasks, type AgentWorkload, type AgentTask } from '../api/projects';
+import { fetchAgents } from '../api/agents';
 import { toast } from '../components/toastStore';
 
 function avatarText(name: string) {
@@ -40,9 +41,8 @@ export default function Workload({ ctx }: Props) {
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchAIAgentScreenshotMembers(), fetchAgentWorkload()])
-      .then(([membersData, workloads]) => {
-        const agents = (membersData.members || []).filter(m => m.username.toLowerCase() !== 'doraemon');
+    Promise.all([fetchAgents(), fetchAgentWorkload()])
+      .then(([agents, workloads]) => {
         setOnlineAgents(agents);
         const map: Record<string, AgentWorkload> = {};
         for (const wl of workloads) map[wl.agent] = wl;
@@ -87,11 +87,10 @@ export default function Workload({ ctx }: Props) {
   // ── Polling: refresh workloads & agents every 15s ──
   const refreshWorkloads = useEffectEvent(async () => {
     try {
-      const [membersData, workloads] = await Promise.all([
-        fetchAIAgentScreenshotMembers(),
+      const [agents, workloads] = await Promise.all([
+        fetchAgents(),
         fetchAgentWorkload(),
       ]);
-      const agents = (membersData.members || []).filter(m => m.username.toLowerCase() !== 'doraemon');
       setOnlineAgents(agents);
       const map: Record<string, AgentWorkload> = {};
       for (const wl of workloads) map[wl.agent] = wl;

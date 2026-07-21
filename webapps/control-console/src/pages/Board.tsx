@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, useCallback, useEffectEvent } from 'react';
 import type { AppContextType } from '../App';
-import { createBranch, createRequirement, updateBoard, fetchAIAgentScreenshotMembers, fetchStats, deleteBranch } from '../api/projects';
+import { createBranch, createRequirement, updateBoard, deleteRequirement, fetchStats, deleteBranch, fetchAIAgentStatus } from '../api/projects';
+import { fetchAgents } from '../api/agents';
 import { buttonVariants } from '../variants';
 import mergeTW from '../utils/mergeTW';
 import { toast } from '../components/toastStore';
+import ConfirmModal from '../components/ConfirmModal';
 
 function avatarText(name: string) {
   const compact = String(name || 'AI').replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '');
@@ -42,10 +44,13 @@ export default function Board({ ctx }: Props) {
   const [reqDescription, setReqDescription] = useState('');
   const [reqStatus, setReqStatus] = useState('draft');
   const [reqAssignedMember, setReqAssignedMember] = useState('');
-  const [agentMembers, setAgentMembers] = useState<Array<{ username: string; status: string }>>([]);
+  const [agentMembers, setAgentMembers] = useState<Array<{ id?: string; username: string; status: string }>>([]);
+  const agentMembersCache = useRef<Array<{ id?: string; username: string; status: string }>>([]);
   const [memberStats, setMemberStats] = useState<MemberStatsData[]>([]);
+  const [agentOnline, setAgentOnline] = useState(false);
   const [moveTargetBranch, setMoveTargetBranch] = useState('');
   const [selectedBranches, setSelectedBranches] = useState<Set<string>>(new Set());
+  const [deleteConfirm, setDeleteConfirm] = useState<{ count: number; ids: string[] } | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const columns = [
@@ -66,10 +71,18 @@ export default function Board({ ctx }: Props) {
     return () => document.removeEventListener('click', handler);
   }, []);
 
-  // Fetch AI Agent members for avatar stack + stats
+  // Fetch AI Agent members + status (show cached first, refresh async)
   useEffect(() => {
-    fetchAIAgentScreenshotMembers().then(data => {
-      setAgentMembers((data.members || []).filter(m => m.username.toLowerCase() !== 'doraemon'));
+    // Show cached immediately — avoids delay on mount/reload
+    if (agentMembersCache.current.length > 0) {
+      setAgentMembers(agentMembersCache.current);
+    }
+    fetchAgents().then(data => {
+      setAgentMembers(data);
+      agentMembersCache.current = data;
+    }).catch(() => {});
+    fetchAIAgentStatus().then(s => {
+      setAgentOnline(s.online);
     }).catch(() => {});
     fetchStats(ctx.selectedProject, ctx.selectedBranch).then(data => {
       setMemberStats(data.members || []);
@@ -103,6 +116,7 @@ export default function Board({ ctx }: Props) {
 
   const handleCreateRequirement = useCallback(async () => {
     if (!project || !reqTitle.trim()) return;
+    const [memberName, memberId] = reqAssignedMember.split('|');
     try {
       const req = await createRequirement(project.id, {
         title: reqTitle.trim(),
@@ -110,7 +124,8 @@ export default function Board({ ctx }: Props) {
         priority: reqPriority,
         status: reqStatus,
         branch_id: ctx.selectedBranch || branches[0].id,
-        assigned_member: reqAssignedMember,
+        assigned_member: memberName,
+        assigned_member_id: memberId,
       });
       ctx.selectRequirement(req.id);
       setReqModalOpen(false);
@@ -152,6 +167,26 @@ export default function Board({ ctx }: Props) {
       toast('error', e instanceof Error ? e.message : 'Failed');
     }
   }, [project, ctx]);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (!project || ctx.selectedRequirements.size === 0) return;
+    setDeleteConfirm({ count: ctx.selectedRequirements.size, ids: [...ctx.selectedRequirements] });
+  }, [project, ctx]);
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm || !project) return;
+    try {
+      for (const reqId of deleteConfirm.ids) {
+        await deleteRequirement(project.id, reqId);
+      }
+      ctx.clearSelection();
+      await ctx.reload();
+      toast('success', 'Deleted successfully');
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : 'Failed');
+    }
+    setDeleteConfirm(null);
+  };
 
   const toggleBranchSelection = useCallback((id: string, selected: boolean) => {
     setSelectedBranches(prev => {
@@ -214,6 +249,7 @@ export default function Board({ ctx }: Props) {
   const canMove = moveTargetBranch !== '' && moveTargetBranch !== ctx.selectedBranch;
 
   return (
+    <>
     <section id="boardView" className="view activeView">
       <div className="viewHead">
         <div>
@@ -298,7 +334,10 @@ export default function Board({ ctx }: Props) {
             )}
           </div>
           <div className="memberStats">
-            {agentMembers.length} members online
+            {agentOnline
+              ? `${agentMembers.length} members online`
+              : <span className="text-amber-400">AI Agent offline</span>
+            }
             {memberStats.length > 0 && (
               <> · {memberStats.reduce((sum, s) => sum + s.task_count, 0)} tasks assigned</>
             )}
@@ -328,6 +367,7 @@ export default function Board({ ctx }: Props) {
             >Move</button>
           </div>
           <button className={mergeTW(buttonVariants.secondary)} onClick={handleCloseSelected}>Close</button>
+          <button className="px-4 py-1.5 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors" onClick={handleDeleteSelected}>Delete</button>
         </div>
       )}
 
@@ -353,9 +393,10 @@ export default function Board({ ctx }: Props) {
             {requirements.length === 0
               ? (project ? 'No requirements' : 'Select a project to view its board')
               : columns.map(col => {
-                  const colReqs = requirements.filter(r =>
-                    (r.status || 'draft') === col.id || (col.id === 'draft' && !r.status)
-                  );
+                  const colReqs = requirements.filter(r => {
+                    const s = (r.status || 'draft') === 'done' ? 'closed' : (r.status || 'draft');
+                    return s === col.id || (col.id === 'draft' && !r.status);
+                  });
                   return (
                     <section
                       key={col.id}
@@ -431,7 +472,7 @@ export default function Board({ ctx }: Props) {
             {selectedBranches.size > 0 && (
               <div className="selectionToolbar">
                 <strong>{selectedBranches.size} selected</strong>
-                <button className={mergeTW(buttonVariants.secondary)} onClick={handleDeleteBranches}>Delete</button>
+                <button className="px-4 py-1.5 text-sm rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors" onClick={handleDeleteBranches}>Delete</button>
               </div>
             )}
             <div className="branchList">
@@ -521,9 +562,9 @@ export default function Board({ ctx }: Props) {
                 ))}
               </div>
               <select className="select-native" value={reqAssignedMember} onChange={e => setReqAssignedMember(e.target.value)}>
-                <option value="">Unassigned</option>
+                <option value="|">Unassigned</option>
                 {agentMembers.map(m => (
-                  <option key={m.username} value={m.username}>{m.username}</option>
+                  <option key={m.username} value={`${m.username}|${m.id || ''}`}>{m.username}</option>
                 ))}
               </select>
               <textarea
@@ -537,5 +578,13 @@ export default function Board({ ctx }: Props) {
         </div>
       )}
     </section>
+    {deleteConfirm && (
+      <ConfirmModal
+        message={`Delete ${deleteConfirm.count} requirement(s)? This cannot be undone.`}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirm(null)}
+      />
+    )}
+    </>
   );
 }

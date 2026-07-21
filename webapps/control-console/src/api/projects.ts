@@ -25,6 +25,10 @@ export async function updateRequirement(projectId: string, reqId: string, input:
   return api<Requirement>(`/api/projects/${projectId}/requirements/${encodeURIComponent(reqId)}`, { method: 'PUT', body: JSON.stringify(input) });
 }
 
+export async function deleteRequirement(projectId: string, reqId: string): Promise<void> {
+  await api(`/api/projects/${projectId}/requirements/${encodeURIComponent(reqId)}`, { method: 'DELETE' });
+}
+
 export async function updateBoard(projectId: string, input: { requirement_ids: string[]; status?: string; branch_id?: string; agent_id?: string }) {
   return api(`/api/projects/${projectId}/board`, { method: 'POST', body: JSON.stringify(input) });
 }
@@ -63,11 +67,15 @@ export async function fetchTailscaleDevices() {
 }
 
 export async function fetchDiscordMembers() {
-  return api<{ members: Array<{ username: string; status: string; avatar_url?: string }>; error?: string }>('/api/discord/members');
+  return api<{ members: Array<{ id: string; username: string; status: string; avatar_url?: string }>; error?: string }>('/api/discord/members');
+}
+
+export async function fetchDiscordGuildMembers() {
+  return api<{ members: Array<{ id: string; username: string; status?: string; avatar_url?: string }>; error?: string }>('/api/discord/guild-members');
 }
 
 export async function fetchAIAgentScreenshotMembers() {
-  return api<{ members: Array<{ username: string; status: string }>; screenshot_base64?: string; error?: string }>('/api/ai-agent/screenshot-members');
+  return api<{ members: Array<{ id?: string; username: string; status: string }>; screenshot_base64?: string; error?: string }>('/api/ai-agent/screenshot-members');
 }
 
 export async function fetchMembers() {

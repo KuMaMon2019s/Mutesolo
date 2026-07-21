@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS requirements (
   status TEXT NOT NULL DEFAULT 'draft',
   agent_id TEXT NOT NULL DEFAULT '',
   assigned_member TEXT NOT NULL DEFAULT '',
+  assigned_member_id TEXT NOT NULL DEFAULT '',
   prompt TEXT NOT NULL DEFAULT '',
   commit_id TEXT NOT NULL DEFAULT '',
   editor_content TEXT NOT NULL DEFAULT '',

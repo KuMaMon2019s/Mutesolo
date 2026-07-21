@@ -16,6 +16,7 @@ export interface Requirement {
   status: string;
   agent_id?: string;
   assigned_member?: string;
+  assigned_member_id?: string;
   prompt?: string;
   commit_id?: string;
   editor_content?: unknown;

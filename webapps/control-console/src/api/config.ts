@@ -7,6 +7,7 @@ export interface Config {
   discord_url: string;
   discord_widget_url: string;
   discord_bot_id: string;
+  discord_bot_token: string;
   discord_guild_id: string;
   discord_bot_username: string;
   clawhub_base_url: string;
@@ -15,6 +16,10 @@ export interface Config {
   ark_api_key: string;
   github_token: string;
   llm_locked: boolean;
+  agent_exclusions?: string[];
+  agent_self?: string;
+  agent_self_id?: string;
+  agent_member_ids?: Record<string, string>;
 }
 
 export async function fetchConfig(): Promise<Config> {

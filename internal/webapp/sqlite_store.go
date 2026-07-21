@@ -58,6 +58,10 @@ func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 		db.Close()
 		return nil, fmt.Errorf("ensure branches PK: %w", err)
 	}
+	if err := store.ensureAssignedMemberIDColumn(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("ensure assigned_member_id column: %w", err)
+	}
 	return store, nil
 }
 
@@ -112,6 +116,34 @@ func (s *SQLiteStore) ensureBranchesPK() error {
 	return nil
 }
 
+// ensureAssignedMemberIDColumn adds the assigned_member_id column to the requirements
+// table if it doesn't already exist (migration for existing databases).
+func (s *SQLiteStore) ensureAssignedMemberIDColumn() error {
+	// Check if column already exists
+	rows, err := s.db.Query("PRAGMA table_info(requirements)")
+	if err != nil {
+		return nil // table might not exist yet, schema.sql will create it
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, coltype string
+		var notnull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &coltype, &notnull, &dflt, &pk); err != nil {
+			continue
+		}
+		if name == "assigned_member_id" {
+			return nil // column already exists
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil
+	}
+	_, err = s.db.Exec("ALTER TABLE requirements ADD COLUMN assigned_member_id TEXT NOT NULL DEFAULT ''")
+	return err
+}
+
 // ---------------------------------------------------------------------------
 // Load – reconstruct State from SQLite tables
 // ---------------------------------------------------------------------------
@@ -158,6 +190,7 @@ func (s *SQLiteStore) loadConfig() (Config, error) {
 		DiscordURL:         kv["discord_url"],
 		DiscordWidgetURL:   kv["discord_widget_url"],
 		DiscordBotID:       kv["discord_bot_id"],
+		DiscordBotToken:    kv["discord_bot_token"],
 		DiscordGuildID:     kv["discord_guild_id"],
 		DiscordBotUsername: kv["discord_bot_username"],
 		GitHubRepo:         kv["github_repo"],
@@ -169,6 +202,14 @@ func (s *SQLiteStore) loadConfig() (Config, error) {
 	}
 	if kv["llm_locked"] == "true" {
 		cfg.LLMLocked = true
+	}
+	cfg.AgentSelf = kv["agent_self"]
+	cfg.AgentSelfID = kv["agent_self_id"]
+	if v := kv["agent_exclusions"]; v != "" && v != "[]" {
+		json.Unmarshal([]byte(v), &cfg.AgentExclusions)
+	}
+	if v := kv["agent_member_ids"]; v != "" && v != "{}" {
+		json.Unmarshal([]byte(v), &cfg.AgentMemberIDs)
 	}
 	return cfg, nil
 }
@@ -248,7 +289,7 @@ func (s *SQLiteStore) loadBranches(projectID string) ([]ProjectBranch, error) {
 
 func (s *SQLiteStore) loadRequirements(projectID string) ([]Requirement, error) {
 	rows, err := s.db.Query(
-		"SELECT id, branch_id, title, description, priority, status, agent_id, COALESCE(assigned_member, '') as assigned_member, prompt, commit_id, COALESCE(editor_content, '') as editor_content, COALESCE(attachments, '') as attachments, created_at, updated_at FROM requirements WHERE project_id = ? ORDER BY created_at",
+		"SELECT id, branch_id, title, description, priority, status, agent_id, COALESCE(assigned_member, '') as assigned_member, COALESCE(assigned_member_id, '') as assigned_member_id, prompt, commit_id, COALESCE(editor_content, '') as editor_content, COALESCE(attachments, '') as attachments, created_at, updated_at FROM requirements WHERE project_id = ? ORDER BY created_at",
 		projectID,
 	)
 	if err != nil {
@@ -261,7 +302,7 @@ func (s *SQLiteStore) loadRequirements(projectID string) ([]Requirement, error) 
 		var r Requirement
 		var createdAt, updatedAt string
 		var editorContentRaw, attachmentsRaw string
-		if err := rows.Scan(&r.ID, &r.BranchID, &r.Title, &r.Description, &r.Priority, &r.Status, &r.AgentID, &r.AssignedMember, &r.Prompt, &r.CommitID, &editorContentRaw, &attachmentsRaw, &createdAt, &updatedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.BranchID, &r.Title, &r.Description, &r.Priority, &r.Status, &r.AgentID, &r.AssignedMember, &r.AssignedMemberID, &r.Prompt, &r.CommitID, &editorContentRaw, &attachmentsRaw, &createdAt, &updatedAt); err != nil {
 			return nil, err
 		}
 		if editorContentRaw != "" {
@@ -310,6 +351,7 @@ func (s *SQLiteStore) saveConfig(tx *sql.Tx, cfg Config) error {
 		"discord_url":           cfg.DiscordURL,
 		"discord_widget_url":    cfg.DiscordWidgetURL,
 		"discord_bot_id":        cfg.DiscordBotID,
+		"discord_bot_token":     cfg.DiscordBotToken,
 		"discord_guild_id":      cfg.DiscordGuildID,
 		"discord_bot_username":  cfg.DiscordBotUsername,
 		"github_repo":           cfg.GitHubRepo,
@@ -319,6 +361,24 @@ func (s *SQLiteStore) saveConfig(tx *sql.Tx, cfg Config) error {
 		"ark_api_key":           cfg.ArkAPIKey,
 		"github_token":          cfg.GitHubToken,
 		"llm_locked":            fmt.Sprintf("%v", cfg.LLMLocked),
+		"agent_self":            cfg.AgentSelf,
+		"agent_self_id":         cfg.AgentSelfID,
+	}
+	// agent_exclusions is a JSON array
+	if len(cfg.AgentExclusions) > 0 {
+		if b, err := json.Marshal(cfg.AgentExclusions); err == nil {
+			pairs["agent_exclusions"] = string(b)
+		}
+	} else {
+		pairs["agent_exclusions"] = "[]"
+	}
+	// agent_member_ids is a JSON map
+	if len(cfg.AgentMemberIDs) > 0 {
+		if b, err := json.Marshal(cfg.AgentMemberIDs); err == nil {
+			pairs["agent_member_ids"] = string(b)
+		}
+	} else {
+		pairs["agent_member_ids"] = "{}"
 	}
 	for k, v := range pairs {
 		_, err := tx.Exec(
@@ -406,9 +466,9 @@ func (s *SQLiteStore) saveRequirements(tx *sql.Tx, projectID string, requirement
 			attachmentsStr = string(r.Attachments)
 		}
 		_, err := tx.Exec(
-			`INSERT INTO requirements (id, project_id, branch_id, title, description, priority, status, agent_id, assigned_member, prompt, commit_id, editor_content, attachments, created_at, updated_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			r.ID, projectID, r.BranchID, r.Title, r.Description, r.Priority, r.Status, r.AgentID, r.AssignedMember, r.Prompt, r.CommitID,
+			`INSERT INTO requirements (id, project_id, branch_id, title, description, priority, status, agent_id, assigned_member, assigned_member_id, prompt, commit_id, editor_content, attachments, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			r.ID, projectID, r.BranchID, r.Title, r.Description, r.Priority, r.Status, r.AgentID, r.AssignedMember, r.AssignedMemberID, r.Prompt, r.CommitID,
 			editorContentStr, attachmentsStr,
 			r.CreatedAt.Format(timeLayout), r.UpdatedAt.Format(timeLayout),
 		)

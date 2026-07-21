@@ -51,6 +51,7 @@ func (s Server) Handler() http.Handler {
 	mux.HandleFunc("/api/agent-workload", s.handleAgentWorkload)
 	mux.HandleFunc("/api/agent-tasks", s.handleAgentTasks)
 	mux.HandleFunc("/api/discord/members", s.handleDiscordMembers)
+	mux.HandleFunc("/api/discord/guild-members", s.handleDiscordGuildMembers)
 	mux.HandleFunc("/api/tailscale/devices", s.handleTailscaleDevices)
 	mux.HandleFunc("/api/clawhub/skills", s.handleClawHubSkills)
 	mux.HandleFunc("/api/clawhub/skills/", s.handleClawHubSkillActions)
@@ -373,12 +374,26 @@ func (s Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		mergeStringSlice := func(target *[]string, key string) {
+			if v, ok := incoming[key]; ok {
+				if arr, ok := v.([]interface{}); ok {
+					vals := make([]string, 0, len(arr))
+					for _, item := range arr {
+						if s, isStr := item.(string); isStr {
+							vals = append(vals, s)
+						}
+					}
+					*target = vals
+				}
+			}
+		}
 		mergeString(&state.Config.AIAgentBaseURL, "ai_agent_base_url")
 		mergeString(&state.Config.AIAgentToken, "ai_agent_token")
 		mergeString(&state.Config.GitHubRepo, "github_repo")
 		mergeString(&state.Config.DiscordURL, "discord_url")
 		mergeString(&state.Config.DiscordWidgetURL, "discord_widget_url")
 		mergeString(&state.Config.DiscordBotID, "discord_bot_id")
+		mergeString(&state.Config.DiscordBotToken, "discord_bot_token")
 		mergeString(&state.Config.DiscordGuildID, "discord_guild_id")
 		mergeString(&state.Config.DiscordBotUsername, "discord_bot_username")
 		mergeString(&state.Config.ClawHubBaseURL, "clawhub_base_url")
@@ -387,6 +402,20 @@ func (s Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		mergeString(&state.Config.ArkAPIKey, "ark_api_key")
 		mergeString(&state.Config.GitHubToken, "github_token")
 		mergeBool(&state.Config.LLMLocked, "llm_locked")
+		mergeStringSlice(&state.Config.AgentExclusions, "agent_exclusions")
+		mergeString(&state.Config.AgentSelf, "agent_self")
+		mergeString(&state.Config.AgentSelfID, "agent_self_id")
+		if v, ok := incoming["agent_member_ids"]; ok {
+			if m, ok := v.(map[string]interface{}); ok {
+				ids := make(map[string]string, len(m))
+				for k, val := range m {
+					if s, isStr := val.(string); isStr {
+						ids[k] = s
+					}
+				}
+				state.Config.AgentMemberIDs = ids
+			}
+		}
 		if err := s.store.Save(state); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -479,6 +508,24 @@ func (s Server) handleDiscordMembers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"members": members})
 }
 
+func (s Server) handleDiscordGuildMembers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	state, err := s.store.Load()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	members, err := s.connector.FetchGuildMembers(r.Context(), state.Config.DiscordBotToken, state.Config.DiscordGuildID)
+	if err != nil {
+		writeJSON(w, map[string]any{"members": []DiscordMember{}, "error": err.Error()})
+		return
+	}
+	writeJSON(w, map[string]any{"members": members})
+}
+
 func (s Server) handleTailscaleDevices(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -532,6 +579,8 @@ func (s Server) handleProjects(w http.ResponseWriter, r *http.Request) {
 		go s.uploadCoverForProject(project.ID)
 
 		writeJSON(w, project)
+
+		go SyncProjectCreated(project)
 	default:
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
@@ -786,6 +835,14 @@ func (s Server) handleRequirements(w http.ResponseWriter, r *http.Request, proje
 		return
 	}
 	writeJSON(w, req)
+
+	// Notify Discord sync webhook asynchronously.
+	for _, p := range state.Projects {
+		if p.ID == projectID {
+			go SyncRequirementCreated(projectID, p.Name, req)
+			break
+		}
+	}
 }
 
 func (s Server) handleRequirementDetail(w http.ResponseWriter, r *http.Request, projectID string, reqID string) {

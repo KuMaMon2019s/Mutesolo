@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type { AppContextType } from '../App';
-import { updateRequirement, fetchAIAgentScreenshotMembers } from '../api/projects';
+import { updateRequirement } from '../api/projects';
+import { fetchAgents } from '../api/agents';
 import { api } from '../api/client';
 import { buttonVariants } from '../variants';
 import mergeTW from '../utils/mergeTW';
@@ -110,7 +111,7 @@ export default function TaskDetail({ ctx }: Props) {
   const [assignedMember, setAssignedMember] = useState('');
   const [promptText, setPromptText] = useState('');
   const [generating, setGenerating] = useState(false);
-  const [agentMembers, setAgentMembers] = useState<Array<{ username: string; status: string }>>([]);
+  const [agentMembers, setAgentMembers] = useState<Array<{ id?: string; username: string; status: string }>>([]);
   const [saving, setSaving] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -118,14 +119,16 @@ export default function TaskDetail({ ctx }: Props) {
     if (requirement) {
       setTitle(requirement.title || '');
       setPriority(requirement.priority || 'low');
-      setAssignedMember(requirement.assigned_member || '');
+      const memberId = requirement.assigned_member_id || '';
+      const memberName = requirement.assigned_member || '';
+      setAssignedMember(memberName ? `${memberName}|${memberId}` : '');
       setPromptText(requirement.prompt || '');
     }
   }, [requirement]);
 
   useEffect(() => {
-    fetchAIAgentScreenshotMembers().then(data => {
-      setAgentMembers((data.members || []).filter(m => m.username.toLowerCase() !== 'doraemon'));
+    fetchAgents().then(data => {
+      setAgentMembers(data);
     }).catch(() => {});
   }, []);
 
@@ -135,10 +138,13 @@ export default function TaskDetail({ ctx }: Props) {
     try {
       // Read editor content: localStorage primary, postMessage fallback
       const editorCtx = await getEditorContext(project.id, requirement.id, iframeRef.current);
+      // Parse "username|id" from select value
+      const [memberName, memberId] = assignedMember.split('|');
       const payload: Record<string, unknown> = {
         title,
         priority,
-        assigned_member: assignedMember,
+        assigned_member: memberName || '',
+        assigned_member_id: memberId || '',
       };
       if (editorCtx) {
         payload.editor_content = editorCtx.blocks;
@@ -227,7 +233,10 @@ export default function TaskDetail({ ctx }: Props) {
             >{saving ? 'Saving...' : 'Save'}</button>
           </div>
           <div className="formStack taskMetaForm">
-            <input placeholder="Requirement title" value={title} onChange={e => setTitle(e.target.value)} />
+            <div className="inputWithCounter">
+              <input placeholder="Requirement title" value={title} onChange={e => setTitle(e.target.value)} maxLength={100} />
+              <span className="charCounter">{title.length}/100</span>
+            </div>
             <div className="priorityChoices">
               {['no_priority', 'low', 'medium', 'high', 'urgent'].map(p => (
                 <label key={p}>
@@ -239,7 +248,7 @@ export default function TaskDetail({ ctx }: Props) {
             <select className="select-native" value={assignedMember} onChange={e => setAssignedMember(e.target.value)}>
               <option value="">Unassigned</option>
               {agentMembers.map(m => (
-                <option key={m.username} value={m.username}>{m.username}</option>
+                <option key={m.username} value={`${m.username}|${m.id || ''}`}>{m.username}</option>
               ))}
             </select>
           </div>

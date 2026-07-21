@@ -18,6 +18,7 @@ type Config struct {
 	DiscordURL         string `json:"discord_url"`
 	DiscordWidgetURL   string `json:"discord_widget_url"`
 	DiscordBotID       string `json:"discord_bot_id"`
+	DiscordBotToken    string `json:"discord_bot_token"`
 	DiscordGuildID     string `json:"discord_guild_id"`
 	DiscordBotUsername string `json:"discord_bot_username"`
 	GitHubRepo         string `json:"github_repo"`
@@ -26,7 +27,11 @@ type Config struct {
 	OpenCodeAPIKey     string `json:"opencode_api_key"`
 	ArkAPIKey          string `json:"ark_api_key"`
 	GitHubToken        string `json:"github_token"`
-	LLMLocked          bool   `json:"llm_locked"`
+	LLMLocked          bool     `json:"llm_locked"`
+	AgentExclusions    []string `json:"agent_exclusions,omitempty"`
+	AgentSelf          string            `json:"agent_self,omitempty"`
+	AgentSelfID        string            `json:"agent_self_id,omitempty"`
+	AgentMemberIDs     map[string]string `json:"agent_member_ids,omitempty"`
 }
 
 type Project struct {
@@ -49,20 +54,21 @@ type ProjectBranch struct {
 }
 
 type Requirement struct {
-	ID             string            `json:"id"`
-	BranchID       string            `json:"branch_id,omitempty"`
-	Title          string            `json:"title"`
-	Description    string            `json:"description"`
-	Priority       string            `json:"priority"`
-	Status         string            `json:"status"`
-	AgentID        string            `json:"agent_id,omitempty"`
-	AssignedMember string            `json:"assigned_member,omitempty"`
-	Prompt         string            `json:"prompt,omitempty"`
-	CommitID       string            `json:"commit_id,omitempty"`
-	EditorContent  json.RawMessage   `json:"editor_content,omitempty"`
-	Attachments    json.RawMessage   `json:"attachments,omitempty"`
-	CreatedAt      time.Time         `json:"created_at"`
-	UpdatedAt      time.Time         `json:"updated_at"`
+	ID               string            `json:"id"`
+	BranchID         string            `json:"branch_id,omitempty"`
+	Title            string            `json:"title"`
+	Description      string            `json:"description"`
+	Priority         string            `json:"priority"`
+	Status           string            `json:"status"`
+	AgentID          string            `json:"agent_id,omitempty"`
+	AssignedMember   string            `json:"assigned_member,omitempty"`
+	AssignedMemberID string            `json:"assigned_member_id,omitempty"`
+	Prompt           string            `json:"prompt,omitempty"`
+	CommitID         string            `json:"commit_id,omitempty"`
+	EditorContent    json.RawMessage   `json:"editor_content,omitempty"`
+	Attachments      json.RawMessage   `json:"attachments,omitempty"`
+	CreatedAt        time.Time         `json:"created_at"`
+	UpdatedAt        time.Time         `json:"updated_at"`
 }
 
 type AIAgentStatus struct {

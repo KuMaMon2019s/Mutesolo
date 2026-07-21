@@ -218,6 +218,9 @@ func UpdateRequirementDetails(state *State, projectID string, reqID string, inpu
 			if strings.TrimSpace(input.AssignedMember) != "" {
 				req.AssignedMember = strings.TrimSpace(input.AssignedMember)
 			}
+			if strings.TrimSpace(input.AssignedMemberID) != "" {
+				req.AssignedMemberID = strings.TrimSpace(input.AssignedMemberID)
+			}
 			if len(input.EditorContent) > 0 {
 				req.EditorContent = input.EditorContent
 				// 双向同步: BlockNote JSON → HTML (给 Extension 看，含图片)
