@@ -465,7 +465,7 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 | `fetchGitHubReleases` | `github.ts` | 37 | Repo releases |
 | `fetchMe` | `auth.ts` | 9 | Get current user |
 | `logout` | `auth.ts` | 19 | Logout / clear session |
-| `fetchAgents` | `agents.ts` | 9 | Fetch agent list (members - exclusions) |
+| `fetchAgents` | `agents.ts` | 10 | Fetch agent list (members - exclusions) |
 
 ### Chrome Extension API Layer
 | Export | File | Line | Purpose |
