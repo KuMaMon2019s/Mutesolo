@@ -24,6 +24,8 @@ rg "func (Sync)" internal/webapp/discord_sync.go  # Discord sync webhook (line 1
 rg "func (FetchGuildMembers)" internal/webapp/connectors.go  # Discord REST API guild members (line 144)
 rg "export class" extension/src/pages/         # Chrome Extension pages
 rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
+rg "func (RunPipeline|Classify|Generate|Validate)" control_layer/  # Control layer pipeline (line 3-28)
+rg "type (CodeClass|PipelineInput|Generation|Validation|Artifact)" control_layer/models.go  # Control layer models (line 3-38)
 ```
 
 ---
@@ -283,11 +285,26 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 - **JSON impl:** `internal/coordination/json_store.go:15-127` (JSONStore)
 - **CLI consumer:** `cmd/opclawctl/main.go:58` (openRepository → coordination.Repository), `L75` (resolveCoordBackend)
 
+### Feature: Control Layer (v0.6.0)
+**Purpose:** Code pipeline for classifying, generating, validating, and storing LLM-generated code artifacts
+- **Entry:** `control_layer/pipeline.go:8` (RunPipeline — orchestrator: classify → generate → validate → store)
+- **Models:** `control_layer/models.go:3-38` (CodeClass enum, PipelineInput, Generation, Validation, Artifact)
+- **Classifier:** `control_layer/classifier.go:5` (Classify — determines CodeClass from content)
+- **Generator:** `control_layer/generator.go:8` (Generate — LLM code generation wrapper)
+- **Validator:** `control_layer/validator.go:5` (Validate — safety/quality check on generated code)
+- **Artifacts:** `control_layer/artifacts.go:12` (StoreArtifact), `L34` (NewArtifactID)
+- **CLI integration:** `cmd/opclawctl/main.go:90` (pipelineCommand), `L102` (pipelineRunCommand)
+
+### Feature: Data Migration
+**Purpose:** JSON → SQLite store migration script
+- **Script:** `scripts/migrate_json_to_sqlite.py` (standalone migration utility)
+
 ### Feature: Chrome Extension (v0.5.0)
 **Purpose:** Side-panel extension for mobile-friendly Kanban workflow access
 - **Framework:** WXT (`extension/wxt.config.ts:3`)
 - **Background:** `extension/src/entrypoints/background.ts:1` (defineBackground — service worker)
 - **Side panel:** `extension/src/entrypoints/sidepanel.html` (side panel entry point)
+- **Bootstrap:** `extension/src/scripts/sidepanel-bootstrap.ts:23` (Router + Store initialization)
 - **Router:** `extension/src/lib/router.ts:13` (Router class — client-side SPA routing between login/workload/detail/settings)
 - **API client:** `extension/src/lib/api.ts:8-128` (apiFetch, apiGet, apiPost, apiPut, checkAuth, showToast, ToastType — 148 lines)
 - **State store:** `extension/src/lib/store.ts:147` (Store class with AgentWorkload interface)
@@ -299,6 +316,11 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 - **Built output:** `extension/.output/chrome-mv3/` (packaged extension)
 - **Distributable:** `extension/mutesolo-extension-v0.5.0.zip`
 
+### Feature: Frontend Utilities
+**Purpose:** Shared UI helpers and variants for the control console
+- **Tailwind merge:** `webapps/control-console/src/utils/mergeTW.ts:1` (mergeTW — class name dedup utility)
+- **UI variants:** `webapps/control-console/src/variants.ts:1` (buttonVariants), `L9` (inputVariants), `L13` (cardVariants)
+
 ---
 
 ## By-Concern Map
@@ -309,9 +331,12 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 | `cmd/mutesolo-web/main.go` | 16 | Web server main |
 | `cmd/opclawctl/main.go` | 16 | CLI main |
 | `sync-discord/main.go` | 148 | Discord sync queue processor |
+| `control_layer/pipeline.go` | 8 | Code generation pipeline orchestrator |
+| `scripts/migrate_json_to_sqlite.py` | — | JSON → SQLite migration utility |
 | `webapps/control-console/src/App.tsx` | 102 | React app root (ViewId routing) |
 | `webapps/requirement-editor/src/RequirementEditor.tsx` | 155 | Editor component |
 | `extension/src/entrypoints/background.ts` | 1 | Chrome extension service worker |
+| `extension/src/scripts/sidepanel-bootstrap.ts` | 23 | Extension side panel bootstrap |
 
 ### Data Models (all in internal/webapp/models.go)
 | Struct | Line | Purpose |
@@ -369,6 +394,15 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 | `State` | 61 | Top-level coordination state |
 | `InitialState` | 69 | Default state constructor |
 | `NewEvent` | 91 | Event factory |
+
+### Control Layer Models (all in control_layer/models.go)
+| Type | Line | Purpose |
+|------|------|---------|
+| `CodeClass` | 3 | Enum: safe/infrastructure/system |
+| `PipelineInput` | 18 | Input for code generation pipeline |
+| `Generation` | 23 | Generated code output |
+| `Validation` | 27 | Validation result with status + reason |
+| `Artifact` | 33 | Stored artifact (prompt, generation, validation) |
 
 ### HTTP Routes
 | Method | Path | Handler | File:Line |
@@ -429,6 +463,14 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 | SettingsCard | `SettingsCard.tsx` | 12 |
 | TransferBox | `TransferBox.tsx` | 14 |
 | ConfirmModal | `ConfirmModal.tsx` | 7 |
+
+### Frontend Utilities
+| Export | File | Line | Purpose |
+|--------|------|------|---------|
+| `mergeTW` | `utils/mergeTW.ts` | 1 | Tailwind class name dedup |
+| `buttonVariants` | `variants.ts` | 1 | Button style variants |
+| `inputVariants` | `variants.ts` | 9 | Input style variants |
+| `cardVariants` | `variants.ts` | 13 | Card style variants |
 
 ### Frontend API Layer
 | Function | File | Line | Purpose |
@@ -507,6 +549,12 @@ rg "export (async |)function" extension/src/lib/api.ts  # Extension API client
 | `internal/coordination/core.go` | Task matching + assignment logic, 196 lines |
 | `internal/coordination/sqlite_store.go` | Coordination SQLite persistence, 322 lines |
 | `internal/webapp/github.go` | GitHub API proxy + cache + handlers, 345 lines |
+| `control_layer/pipeline.go` | Code generation pipeline orchestrator, 28 lines |
+| `control_layer/models.go` | Control layer data models, 38 lines |
+| `control_layer/classifier.go` | Code classifier, 49 lines |
+| `control_layer/generator.go` | LLM code generator, 31 lines |
+| `control_layer/validator.go` | Code safety validator, 33 lines |
+| `control_layer/artifacts.go` | Artifact storage, 55 lines |
 | `extension/src/pages/DetailPage.ts` | Chrome extension detail view, 939 lines |
 | `extension/src/pages/WorkloadPage.ts` | Chrome extension workload dashboard, 558 lines |
 | `extension/src/lib/api.ts` | Chrome extension API client, 148 lines |
